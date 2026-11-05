@@ -1,0 +1,6 @@
+{
+  "name": "CheapPCGames - Steam, Epic, PS4 & PS5 Digital Games Store",
+  "description": "Premier digital gaming marketplace for cheap PC (Steam, Epic Games) and Console (PS4, PS5) games with instant digital delivery, offers, and verified accounts/keys.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

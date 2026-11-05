@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'sakthianalanoffical@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Games collection: Anyone can read, only admins can create/update/delete
+    match /games/{gameId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(gameId);
+      allow update: if isAdmin() && isValidId(gameId);
+      allow delete: if isAdmin() && isValidId(gameId);
+    }
+
+    // Admins collection: Only admins can manage
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      allow write: if isAdmin() && isValidId(adminId);
+    }
+
+    // Orders collection: Customers can place orders, view order receipt, admin can update/delete
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if isValidId(orderId) && incoming().userEmail is string && incoming().userEmail.size() <= 150;
+      allow update, delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // Coupons collection: Authenticated/public can read active coupons, admins can manage
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(couponId);
+    }
+
+    // Reviews collection: Anyone can read, customers can post reviews, author or admin can delete
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isValidId(reviewId) && incoming().comment is string && incoming().comment.size() <= 1000;
+      allow update, delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // Users collection: Users can read and update their own document
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create, update: if isOwner(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Newsletter collection: Anyone can subscribe, only admins can view subscriber lists
+    match /newsletter/{subscriberId} {
+      allow create: if isValidId(subscriberId) && incoming().email is string && incoming().email.size() <= 150;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Settings collection: Anyone can read store configs (UPI scanner, WhatsApp number), admins can write
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(settingId);
+    }
+  }
+}

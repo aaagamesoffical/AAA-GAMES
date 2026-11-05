@@ -1,0 +1,1515 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  Save, 
+  Tag, 
+  Package, 
+  DollarSign, 
+  Sparkles, 
+  RefreshCw, 
+  CheckCircle, 
+  AlertCircle,
+  Eye,
+  TrendingUp,
+  Search,
+  Check,
+  Percent,
+  Gamepad2,
+  Clock,
+  Phone,
+  Mail,
+  QrCode,
+  Image as ImageIcon,
+  MessageCircle,
+  ExternalLink,
+  Copy,
+  Users,
+  Star,
+  MessageSquare
+} from 'lucide-react';
+import { Game, Coupon, Order, Platform, ProductType, StoreSettings, NewsletterSubscriber, Review } from '../types/game';
+import { 
+  saveGame, 
+  deleteGame, 
+  seedInitialGames, 
+  subscribeToCoupons, 
+  saveCoupon, 
+  deleteCoupon,
+  subscribeToAllOrders,
+  updateOrderStatus,
+  subscribeToStoreSettings,
+  saveStoreSettings,
+  subscribeToNewsletterSubscribers,
+  subscribeToAllReviews,
+  deleteReview,
+  DEFAULT_STORE_SETTINGS
+} from '../services/gameService';
+import { useCart } from '../context/CartContext';
+
+interface AdminPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  games: Game[];
+}
+
+const PRESET_GAME_COVERS = [
+  { label: 'GTA V / Open World', url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80' },
+  { label: 'Black Myth / Mythic RPG', url: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?auto=format&fit=crop&w=600&q=80' },
+  { label: 'God of War / Norse', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80' },
+  { label: 'Spider-Man / Hero', url: 'https://images.unsplash.com/photo-1635863138275-d9b33299680b?auto=format&fit=crop&w=600&q=80' },
+  { label: 'Cyberpunk Neon', url: 'https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=600&q=80' },
+  { label: 'Elden Ring / Souls', url: 'https://images.unsplash.com/photo-1534423861386-85a16f5d13fd?auto=format&fit=crop&w=600&q=80' },
+  { label: 'FC 25 Football', url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=600&q=80' },
+  { label: 'Forza Racing', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80' },
+  { label: 'Ghost of Tsushima', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80' },
+  { label: 'Horror / Survival', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80' },
+];
+
+export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }) => {
+  const { formatPrice } = useCart();
+  const [activeTab, setActiveTab] = useState<'games' | 'coupons' | 'orders' | 'settings' | 'newsletter' | 'reviews' | 'analytics'>('games');
+  
+  // Games state
+  const [editingGame, setEditingGame] = useState<Partial<Game> | null>(null);
+  const [isNewGame, setIsNewGame] = useState(false);
+  const [gameSearch, setGameSearch] = useState('');
+  const [savingGame, setSavingGame] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [successToast, setSuccessToast] = useState('');
+
+  // Coupons state
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [newCouponCode, setNewCouponCode] = useState('');
+  const [newCouponDiscount, setNewCouponDiscount] = useState<number>(10);
+  const [newCouponMinSpend, setNewCouponMinSpend] = useState<number>(300);
+
+  // Orders state
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'delivered' | 'paid' | 'processing'>('all');
+
+  // Store Settings (Real UPI & WhatsApp)
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  // Newsletter Subscribers
+  const [subscribers, setSubscribers] = useState<NewsletterSubscriber[]>([]);
+  const [copiedEmails, setCopiedEmails] = useState(false);
+
+  // Customer Reviews state
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const unsubCoupons = subscribeToCoupons((loadedCoupons) => setCoupons(loadedCoupons));
+    const unsubOrders = subscribeToAllOrders((loadedOrders) => setOrders(loadedOrders));
+    const unsubSettings = subscribeToStoreSettings((settings) => setStoreSettings(settings));
+    const unsubSubscribers = subscribeToNewsletterSubscribers((subs) => setSubscribers(subs));
+    const unsubReviews = subscribeToAllReviews((loadedReviews) => setReviews(loadedReviews));
+
+    return () => {
+      unsubCoupons();
+      unsubOrders();
+      unsubSettings();
+      unsubSubscribers();
+      unsubReviews();
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const showNotification = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => setSuccessToast(''), 3000);
+  };
+
+  // Handle Game Form Save
+  const handleSaveGameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGame || !editingGame.title || !editingGame.platform) return;
+
+    setSavingGame(true);
+    try {
+      const gameId = editingGame.id || `${editingGame.platform}-${Date.now()}`;
+      const calculatedDiscount = editingGame.originalPrice && editingGame.price
+        ? Math.round(((editingGame.originalPrice - editingGame.price) / editingGame.originalPrice) * 100)
+        : editingGame.discountPercent || 0;
+
+      await saveGame({
+        ...editingGame,
+        id: gameId,
+        slug: editingGame.slug || editingGame.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        title: editingGame.title,
+        platform: editingGame.platform as Platform,
+        type: (editingGame.type || 'offline_account') as ProductType,
+        genre: editingGame.genre || 'Action',
+        price: Number(editingGame.price) || 299,
+        originalPrice: Number(editingGame.originalPrice) || 2499,
+        discountPercent: calculatedDiscount,
+        description: editingGame.description || 'Digital game with instant activation.',
+        coverImage: editingGame.coverImage || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80',
+        bannerImage: editingGame.bannerImage || editingGame.coverImage,
+        edition: editingGame.edition || 'Standard Edition',
+        deliveryType: editingGame.deliveryType || 'Instant Digital Delivery',
+        activationGuide: editingGame.activationGuide || '1. Sign in to provided credentials.\n2. Download game from library.\n3. Enjoy!',
+        systemRequirements: editingGame.systemRequirements || 'Windows 10/11 or Console Compatible',
+        inStock: editingGame.inStock ?? true,
+        stockCount: Number(editingGame.stockCount) || 20,
+        isFeatured: Boolean(editingGame.isFeatured),
+        isDealOfTheDay: Boolean(editingGame.isDealOfTheDay),
+        rating: editingGame.rating || 4.9,
+        reviewCount: editingGame.reviewCount || 10,
+        createdAt: editingGame.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      setEditingGame(null);
+      setIsNewGame(false);
+      showNotification('Game & Image successfully saved to store database!');
+    } catch (err: any) {
+      console.error(err);
+      alert('Error saving game: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSavingGame(false);
+    }
+  };
+
+  const handleDeleteGame = async (gameId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}" from the store catalog?`)) return;
+    try {
+      await deleteGame(gameId);
+      showNotification(`"${title}" deleted successfully.`);
+    } catch (err: any) {
+      alert('Delete failed: ' + err.message);
+    }
+  };
+
+  const handleSeedDatabase = async () => {
+    if (!confirm('This will seed the database with 14+ top AAA games across Steam, Epic, PS4 and PS5. Continue?')) return;
+    setSeeding(true);
+    try {
+      await seedInitialGames();
+      showNotification('Catalog seeded successfully!');
+    } catch (err: any) {
+      alert('Seed failed: ' + err.message);
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  // Handle Settings Save
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    try {
+      await saveStoreSettings(storeSettings);
+      showNotification('Real UPI Scanner and WhatsApp Number updated live!');
+    } catch (err: any) {
+      alert('Failed to update settings: ' + err.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Copy Subscribers List
+  const handleCopySubscribers = () => {
+    const emails = subscribers.map((s) => s.email).join(', ');
+    navigator.clipboard.writeText(emails);
+    setCopiedEmails(true);
+    setTimeout(() => setCopiedEmails(false), 2000);
+  };
+
+  // Handle Coupon Create
+  const handleCreateCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCouponCode.trim()) return;
+
+    try {
+      await saveCoupon({
+        id: newCouponCode.trim().toUpperCase(),
+        code: newCouponCode.trim().toUpperCase(),
+        discountPercent: Number(newCouponDiscount),
+        minSpend: Number(newCouponMinSpend),
+        isActive: true,
+        createdAt: new Date().toISOString()
+      });
+      setNewCouponCode('');
+      showNotification('Discount coupon created!');
+    } catch (err: any) {
+      alert('Failed to create coupon: ' + err.message);
+    }
+  };
+
+  const handleDeleteCoupon = async (code: string) => {
+    if (!confirm(`Delete coupon ${code}?`)) return;
+    try {
+      await deleteCoupon(code);
+      showNotification(`Coupon ${code} deleted.`);
+    } catch (err: any) {
+      alert('Delete failed: ' + err.message);
+    }
+  };
+
+  const handleDeleteReviewItem = async (reviewId: string) => {
+    if (!confirm('Are you sure you want to delete this customer review?')) return;
+    try {
+      await deleteReview(reviewId);
+      showNotification('Customer review deleted.');
+    } catch (err: any) {
+      alert('Delete review failed: ' + err.message);
+    }
+  };
+
+  // Filter games
+  const filteredGames = games.filter((g) =>
+    g.title.toLowerCase().includes(gameSearch.toLowerCase()) ||
+    g.platform.toLowerCase().includes(gameSearch.toLowerCase()) ||
+    g.genre.toLowerCase().includes(gameSearch.toLowerCase())
+  );
+
+  // Analytics calculations
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const platformStats = {
+    steam: games.filter((g) => g.platform === 'steam').length,
+    epic: games.filter((g) => g.platform === 'epic').length,
+    ps5: games.filter((g) => g.platform === 'ps5').length,
+    ps4: games.filter((g) => g.platform === 'ps4').length,
+  };
+
+  // UPI Scannable QR URL
+  const generatedUpiQrUrl = storeSettings.upiQrImage?.trim() 
+    ? storeSettings.upiQrImage.trim()
+    : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(
+        `upi://pay?pa=${storeSettings.upiId.trim()}&pn=${encodeURIComponent(storeSettings.upiPayeeName.trim())}&cu=INR`
+      )}`;
+
+  const cleanWhatsApp = storeSettings.whatsappNumber.replace(/[^0-9]/g, '');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-6xl bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden text-white my-auto max-h-[95vh] flex flex-col">
+        
+        {/* Header */}
+        <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between bg-zinc-950 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-base sm:text-lg text-white">Admin Control Center</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">
+                  Verified Admin
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400">Edit games &amp; images, live UPI scanner, WhatsApp number &amp; promo offers</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSeedDatabase}
+              disabled={seeding}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700 transition-colors"
+              title="Populate store with default AAA catalog"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${seeding ? 'animate-spin text-emerald-400' : ''}`} />
+              <span>{seeding ? 'Seeding...' : 'Seed Catalog'}</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Success Toast */}
+        {successToast && (
+          <div className="bg-emerald-500 text-zinc-950 px-4 py-2 text-xs font-black flex items-center gap-2 shadow-lg animate-fade-in flex-shrink-0">
+            <CheckCircle className="w-4 h-4" />
+            <span>{successToast}</span>
+          </div>
+        )}
+
+        {/* Tabs Bar */}
+        <div className="flex items-center gap-2 px-6 pt-3 border-b border-zinc-800 bg-zinc-950/60 flex-shrink-0 overflow-x-auto no-scrollbar text-xs sm:text-sm font-bold">
+          <button
+            onClick={() => {
+              setActiveTab('games');
+              setEditingGame(null);
+            }}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'games'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Gamepad2 className="w-4 h-4" />
+            <span>Manage Games ({games.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'settings'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <QrCode className="w-4 h-4 text-emerald-400" />
+            <span>Real UPI &amp; WhatsApp Settings</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('coupons')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'coupons'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Tag className="w-4 h-4" />
+            <span>Offers &amp; Coupons ({coupons.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'orders'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            <span>Orders ({orders.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('newsletter')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'newsletter'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-4 h-4 text-cyan-400" />
+            <span>Subscribers ({subscribers.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'reviews'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 text-amber-400" />
+            <span>Reviews ({reviews.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'analytics'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>Analytics</span>
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+          
+          {/* TAB 1: GAMES MANAGEMENT (WITH PROMINENT IMAGE EDITING) */}
+          {activeTab === 'games' && (
+            <div className="space-y-5">
+              
+              {/* If Editing/Adding Game Form is Active */}
+              {editingGame ? (
+                <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800 space-y-5">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <div>
+                      <h4 className="font-extrabold text-base text-white">
+                        {isNewGame ? 'Add New Game to Store' : `Edit Game: ${editingGame.title}`}
+                      </h4>
+                      <p className="text-xs text-zinc-400">Edit titles, pricing, and live game cover &amp; banner art</p>
+                    </div>
+                    <button
+                      onClick={() => setEditingGame(null)}
+                      className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-400 hover:text-white"
+                    >
+                      Back to List
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveGameSubmit} className="space-y-5">
+                    
+                    {/* DEDICATED GAME IMAGE EDITOR SECTION */}
+                    <div className="p-4 rounded-2xl bg-zinc-900/90 border border-emerald-500/30 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4 text-emerald-400" />
+                          <h5 className="font-bold text-sm text-white">Game Cover &amp; Banner Image Studio</h5>
+                        </div>
+                        <span className="text-[11px] text-zinc-400">Live Visual Preview</span>
+                      </div>
+
+                      {/* Image Preview & URL Inputs */}
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                        
+                        {/* Cover Image Preview */}
+                        <div className="md:col-span-3 space-y-2">
+                          <span className="text-xs text-zinc-400 font-semibold block">Cover Art Preview</span>
+                          <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden bg-zinc-950 border border-zinc-800 shadow-md flex items-center justify-center">
+                            {editingGame.coverImage ? (
+                              <img
+                                src={editingGame.coverImage}
+                                alt="Game Cover Preview"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80';
+                                }}
+                              />
+                            ) : (
+                              <div className="text-center p-3 text-zinc-500 text-xs">
+                                <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                                <span>No Cover URL</span>
+                              </div>
+                            )}
+                            <div className="absolute bottom-2 left-2 right-2 bg-black/70 backdrop-blur-sm px-2 py-1 rounded text-[10px] text-center text-emerald-300 font-bold truncate">
+                              Card Aspect (3:4)
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Banner Preview & Inputs */}
+                        <div className="md:col-span-9 space-y-3.5">
+                          <div>
+                            <label className="block text-xs text-zinc-300 font-bold mb-1">
+                              Cover Image URL (Direct Link) *
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="url"
+                                required
+                                value={editingGame.coverImage || ''}
+                                onChange={(e) => setEditingGame({ ...editingGame, coverImage: e.target.value })}
+                                placeholder="Paste image link: https://images.unsplash.com/... or https://..."
+                                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+                              />
+                              {editingGame.coverImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingGame({ ...editingGame, coverImage: '' })}
+                                  className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-400 hover:text-white"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-zinc-300 font-bold mb-1">
+                              Banner Image URL (Landscape Background Preview)
+                            </label>
+                            <input
+                              type="url"
+                              value={editingGame.bannerImage || ''}
+                              onChange={(e) => setEditingGame({ ...editingGame, bannerImage: e.target.value })}
+                              placeholder="Optional wide banner link: https://images.unsplash.com/..."
+                              className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+                            />
+                            {editingGame.bannerImage && (
+                              <div className="mt-2 h-20 w-full rounded-xl overflow-hidden border border-zinc-800">
+                                <img
+                                  src={editingGame.bannerImage}
+                                  alt="Banner preview"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quick 1-Click Preset Covers Picker */}
+                          <div>
+                            <span className="block text-[11px] text-zinc-400 font-semibold mb-1.5">
+                              Or click a verified high-resolution gaming cover preset:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {PRESET_GAME_COVERS.map((preset) => (
+                                <button
+                                  type="button"
+                                  key={preset.label}
+                                  onClick={() => setEditingGame({ ...editingGame, coverImage: preset.url, bannerImage: preset.url })}
+                                  className="px-2.5 py-1 rounded-lg bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500 text-[11px] text-zinc-300 hover:text-white transition-colors"
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* GENERAL DETAILS */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Title *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editingGame.title || ''}
+                          onChange={(e) => setEditingGame({ ...editingGame, title: e.target.value })}
+                          placeholder="e.g. Grand Theft Auto V"
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Platform *</label>
+                        <select
+                          value={editingGame.platform || 'steam'}
+                          onChange={(e) => setEditingGame({ ...editingGame, platform: e.target.value as Platform })}
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 capitalize"
+                        >
+                          <option value="steam">Steam (PC)</option>
+                          <option value="epic">Epic Games (PC)</option>
+                          <option value="ps5">PlayStation 5</option>
+                          <option value="ps4">PlayStation 4</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Product Type *</label>
+                        <select
+                          value={editingGame.type || 'offline_account'}
+                          onChange={(e) => setEditingGame({ ...editingGame, type: e.target.value as ProductType })}
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                        >
+                          <option value="offline_account">Offline Activation Account</option>
+                          <option value="cd_key">Digital CD-Key</option>
+                          <option value="full_account">Console Primary Account</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Discounted Price (₹) *</label>
+                        <input
+                          type="number"
+                          required
+                          value={editingGame.price ?? 299}
+                          onChange={(e) => setEditingGame({ ...editingGame, price: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Original Price (₹) *</label>
+                        <input
+                          type="number"
+                          required
+                          value={editingGame.originalPrice ?? 2499}
+                          onChange={(e) => setEditingGame({ ...editingGame, originalPrice: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Genre</label>
+                        <input
+                          type="text"
+                          value={editingGame.genre || ''}
+                          onChange={(e) => setEditingGame({ ...editingGame, genre: e.target.value })}
+                          placeholder="Action / RPG / Open World"
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Edition</label>
+                        <input
+                          type="text"
+                          value={editingGame.edition || ''}
+                          onChange={(e) => setEditingGame({ ...editingGame, edition: e.target.value })}
+                          placeholder="Standard / Deluxe / Ultimate"
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Delivery Format Label</label>
+                        <input
+                          type="text"
+                          value={editingGame.deliveryType || ''}
+                          onChange={(e) => setEditingGame({ ...editingGame, deliveryType: e.target.value })}
+                          placeholder="Instant Steam Offline Account"
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-zinc-400 font-semibold mb-1">Stock Count</label>
+                        <input
+                          type="number"
+                          value={editingGame.stockCount ?? 20}
+                          onChange={(e) => setEditingGame({ ...editingGame, stockCount: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-zinc-400 font-semibold mb-1">Description</label>
+                      <textarea
+                        rows={3}
+                        value={editingGame.description || ''}
+                        onChange={(e) => setEditingGame({ ...editingGame, description: e.target.value })}
+                        placeholder="Game synopsis, features, and story..."
+                        className="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-zinc-400 font-semibold mb-1">Step-by-Step Activation Guide</label>
+                      <textarea
+                        rows={3}
+                        value={editingGame.activationGuide || ''}
+                        onChange={(e) => setEditingGame({ ...editingGame, activationGuide: e.target.value })}
+                        placeholder="1. Login to Steam...\n2. Download game..."
+                        className="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+
+                    {/* Flags */}
+                    <div className="flex flex-wrap items-center gap-5 pt-1 text-xs">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editingGame.inStock ?? true}
+                          onChange={(e) => setEditingGame({ ...editingGame, inStock: e.target.checked })}
+                          className="rounded text-emerald-500 focus:ring-emerald-500"
+                        />
+                        <span>In Stock</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editingGame.isFeatured)}
+                          onChange={(e) => setEditingGame({ ...editingGame, isFeatured: e.target.checked })}
+                          className="rounded text-emerald-500 focus:ring-emerald-500"
+                        />
+                        <span>Featured Deal</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editingGame.isDealOfTheDay)}
+                          onChange={(e) => setEditingGame({ ...editingGame, isDealOfTheDay: e.target.checked })}
+                          className="rounded text-emerald-500 focus:ring-emerald-500"
+                        />
+                        <span className="text-rose-400 font-semibold">Deal of the Day 🔥</span>
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+                      <button
+                        type="button"
+                        onClick={() => setEditingGame(null)}
+                        className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingGame}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-colors shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>{savingGame ? 'Saving Game & Cover...' : 'Save Game & Cover'}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                /* Games Table / List */
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="relative w-full sm:w-80">
+                      <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        placeholder="Filter games in catalog..."
+                        value={gameSearch}
+                        onChange={(e) => setGameSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setIsNewGame(true);
+                        setEditingGame({
+                          platform: 'steam',
+                          type: 'offline_account',
+                          price: 299,
+                          originalPrice: 2499,
+                          coverImage: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80',
+                          inStock: true,
+                          stockCount: 20,
+                          rating: 4.9,
+                          reviewCount: 15,
+                        });
+                      }}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-colors shadow-md shadow-emerald-500/20"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add New Game</span>
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto border border-zinc-800 rounded-2xl bg-zinc-950">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-900/80 text-zinc-400 uppercase font-mono tracking-wider border-b border-zinc-800">
+                        <tr>
+                          <th className="py-3 px-4">Game &amp; Image</th>
+                          <th className="py-3 px-3">Platform</th>
+                          <th className="py-3 px-3">Type</th>
+                          <th className="py-3 px-3">Price</th>
+                          <th className="py-3 px-3">Stock</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/80">
+                        {filteredGames.map((game) => (
+                          <tr key={game.id} className="hover:bg-zinc-900/50 transition-colors">
+                            <td className="py-3 px-4 flex items-center gap-3">
+                              <img
+                                src={game.coverImage}
+                                alt={game.title}
+                                className="w-10 h-12 rounded-lg object-cover flex-shrink-0 border border-zinc-800"
+                              />
+                              <div>
+                                <span className="font-bold text-white block truncate max-w-xs">{game.title}</span>
+                                <span className="text-[11px] text-zinc-400">{game.genre}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                                {game.platform}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-zinc-400 capitalize">
+                              {game.type.replace('_', ' ')}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="font-bold text-emerald-400">{formatPrice(game.price)}</span>
+                              <span className="line-through text-zinc-500 block text-[10px]">{formatPrice(game.originalPrice)}</span>
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                game.inStock ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                              }`}>
+                                {game.inStock ? `${game.stockCount} in stock` : 'Out of Stock'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setIsNewGame(false);
+                                    setEditingGame(game);
+                                  }}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white transition-colors"
+                                  title="Edit Game, Price & Cover Image"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteGame(game.id, game.title)}
+                                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"
+                                  title="Delete Game"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: STORE BRANDING, REAL UPI SCANNER & WHATSAPP SETTINGS */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-5">
+                <div className="border-b border-zinc-800 pb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-extrabold text-base text-white flex items-center gap-2">
+                      <QrCode className="w-5 h-5 text-emerald-400" />
+                      Configure Store Branding, Real UPI Scanner &amp; WhatsApp Support
+                    </h4>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Change the store title, announcement banner, merchant UPI scanner, and WhatsApp contact number in real-time.
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-400 font-mono font-bold">
+                    Live Firestore Sync
+                  </span>
+                </div>
+
+                <form onSubmit={handleSaveSettings} className="space-y-5">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    
+                    {/* Left Form Inputs */}
+                    <div className="lg:col-span-7 space-y-4">
+                      
+                      {/* SECTION A: STORE BRANDING */}
+                      <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-3">
+                        <h5 className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Store Branding &amp; Announcements
+                        </h5>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-zinc-300 font-bold mb-1">
+                              Store / Website Name *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={storeSettings.storeName}
+                              onChange={(e) => setStoreSettings({ ...storeSettings, storeName: e.target.value })}
+                              placeholder="AAA GAMES"
+                              className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs sm:text-sm text-white font-bold focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-zinc-300 font-bold mb-1">
+                              Store Tagline / Slogan
+                            </label>
+                            <input
+                              type="text"
+                              value={storeSettings.storeTagline || ''}
+                              onChange={(e) => setStoreSettings({ ...storeSettings, storeTagline: e.target.value })}
+                              placeholder="Premier Digital Gaming Store • Steam, Epic, PS4 & PS5"
+                              className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-300 focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-zinc-300 font-bold mb-1">
+                            Top Announcement Bar Message
+                          </label>
+                          <input
+                            type="text"
+                            value={storeSettings.announcementText || ''}
+                            onChange={(e) => setStoreSettings({ ...storeSettings, announcementText: e.target.value })}
+                            placeholder="🔥 MEGA SALE: Use coupon CHEAPGAMER for 10% instant discount!"
+                            className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* SECTION B: REAL UPI PAYMENT SETTINGS */}
+                      <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-3">
+                        <h5 className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5" />
+                          Real UPI Merchant Setup
+                        </h5>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-zinc-300 font-bold mb-1">
+                              Real UPI ID (VPA) *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={storeSettings.upiId}
+                              onChange={(e) => setStoreSettings({ ...storeSettings, upiId: e.target.value })}
+                              placeholder="9442964232@upi"
+                              className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs sm:text-sm text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                            />
+                            <p className="text-[10px] text-zinc-500 mt-1">Google Pay, PhonePe, Paytm, BHIM</p>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-zinc-300 font-bold mb-1">
+                              Payee / Business Name *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={storeSettings.upiPayeeName}
+                              onChange={(e) => setStoreSettings({ ...storeSettings, upiPayeeName: e.target.value })}
+                              placeholder="AAA GAMES"
+                              className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs text-zinc-300 font-bold">
+                              UPI Scanner QR Code Image Path or URL
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setStoreSettings({
+                                ...storeSettings,
+                                upiQrImage: '/assets/aistudio/WhatsApp_Image_2026-11-02_at_8.42.24_PM_08b9aa99.jpeg'
+                              })}
+                              className="text-[11px] text-emerald-400 hover:text-emerald-300 underline font-semibold"
+                            >
+                              Use Uploaded Google Pay QR
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={storeSettings.upiQrImage || ''}
+                            onChange={(e) => setStoreSettings({ ...storeSettings, upiQrImage: e.target.value })}
+                            placeholder="/assets/aistudio/WhatsApp_Image_2026-11-02_at_8.42.24_PM_08b9aa99.jpeg"
+                            className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* SECTION C: WHATSAPP NUMBER */}
+                      <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-3">
+                        <h5 className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          Official Customer Support WhatsApp
+                        </h5>
+
+                        <div>
+                          <label className="block text-xs text-zinc-300 font-bold mb-1">
+                            WhatsApp Mobile Number *
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              required
+                              value={storeSettings.whatsappNumber}
+                              onChange={(e) => setStoreSettings({ ...storeSettings, whatsappNumber: e.target.value })}
+                              placeholder="+919442964232"
+                              className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-700 rounded-xl text-xs sm:text-sm text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
+                            />
+                            <a
+                              href={`https://wa.me/${cleanWhatsApp}?text=Hello%20testing%20AAA%20GAMES%20WhatsApp%20configuration`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>Test Link</span>
+                            </a>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-1">
+                            Updates the floating WhatsApp bubble, checkout support button, and footer contact.
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Right Live Real UPI Scanner Preview */}
+                    <div className="lg:col-span-5 bg-zinc-900 border border-zinc-800 p-5 rounded-2xl text-center space-y-3 sticky top-4">
+                      <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
+                        <span className="font-bold text-white uppercase tracking-wider text-[11px]">Real UPI Scanner Preview</span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+                          Live Active
+                        </span>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-2xl w-52 h-52 mx-auto shadow-xl flex items-center justify-center overflow-hidden border border-zinc-300">
+                        <img
+                          src={generatedUpiQrUrl}
+                          alt="Real UPI Scanner"
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(
+                              `upi://pay?pa=${storeSettings.upiId.trim()}&pn=${encodeURIComponent(storeSettings.upiPayeeName.trim())}&cu=INR`
+                            )}`;
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-zinc-400 block">Scan to Pay VPA:</span>
+                        <span className="font-mono text-sm font-black text-emerald-400 break-all">
+                          {storeSettings.upiId}
+                        </span>
+                        <span className="text-[11px] text-zinc-300 font-semibold block mt-0.5">
+                          Payee: {storeSettings.upiPayeeName}
+                        </span>
+                      </div>
+
+                      <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 text-left text-xs space-y-1">
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Store Name:</span>
+                          <span className="font-bold text-white">{storeSettings.storeName}</span>
+                        </div>
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Support WhatsApp:</span>
+                          <span className="font-mono font-bold text-emerald-400">{storeSettings.whatsappNumber}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-zinc-400 leading-relaxed">
+                        Customers can scan this exact QR code with Google Pay, PhonePe, Paytm, or BHIM during checkout!
+                      </p>
+                    </div>
+
+                  </div>
+
+                  <div className="flex justify-end pt-3 border-t border-zinc-800">
+                    <button
+                      type="submit"
+                      disabled={savingSettings}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{savingSettings ? 'Saving Settings...' : 'Save All Store Settings'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: OFFERS & COUPONS */}
+          {activeTab === 'coupons' && (
+            <div className="space-y-6">
+              {/* Create Coupon Form */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-emerald-400" />
+                  Create Promotional Offer Voucher
+                </h4>
+
+                <form onSubmit={handleCreateCoupon} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 font-semibold mb-1">Coupon Code</label>
+                    <input
+                      type="text"
+                      required
+                      value={newCouponCode}
+                      onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. FLASH20"
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white uppercase font-mono font-bold focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 font-semibold mb-1">Discount (%)</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      max={90}
+                      value={newCouponDiscount}
+                      onChange={(e) => setNewCouponDiscount(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 font-semibold mb-1">Min Spend (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      value={newCouponMinSpend}
+                      onChange={(e) => setNewCouponMinSpend(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                  </div>
+
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Coupon</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Coupons List */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {coupons.map((coupon) => (
+                  <div
+                    key={coupon.code}
+                    className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-sm text-emerald-400">{coupon.code}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
+                          {coupon.discountPercent}% OFF
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 mt-1">
+                        Min. Order: ₹{coupon.minSpend}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleDeleteCoupon(coupon.code)}
+                      className="p-2 rounded-lg bg-zinc-800 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"
+                      title="Delete Coupon"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: CUSTOMER ORDERS */}
+          {activeTab === 'orders' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-white">Live Customer Orders</h4>
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-zinc-500 mr-1">Filter:</span>
+                  {(['all', 'delivered', 'paid', 'processing'] as const).map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => setOrderFilter(st)}
+                      className={`px-2.5 py-1 rounded-lg capitalize font-semibold transition-colors ${
+                        orderFilter === st
+                          ? 'bg-emerald-500 text-zinc-950'
+                          : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {orders.length === 0 ? (
+                <div className="text-center py-12 text-zinc-400 text-xs">
+                  No customer orders placed yet. Place a test order from the store to see it live here!
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders
+                    .filter((o) => (orderFilter === 'all' ? true : o.status === orderFilter))
+                    .map((order) => (
+                      <div
+                        key={order.id}
+                        className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold text-emerald-400">{order.id}</span>
+                              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                {order.status}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-1 flex flex-wrap items-center gap-3">
+                              <span>Customer: <strong className="text-white">{order.customerName}</strong></span>
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3 h-3 text-emerald-400" />
+                                <strong>{order.customerPhone}</strong>
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Mail className="w-3 h-3 text-zinc-500" />
+                                {order.userEmail}
+                              </span>
+                            </div>
+
+                            {/* Live UTR Reference Number */}
+                            {order.utrNumber && (
+                              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs">
+                                <span className="font-semibold text-[10px] text-zinc-400 uppercase tracking-wider">UPI UTR / Ref:</span>
+                                <span className="font-mono font-bold">{order.utrNumber}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(order.utrNumber || '');
+                                    showNotification('UTR Reference Copied!');
+                                  }}
+                                  className="text-zinc-400 hover:text-white"
+                                  title="Copy UTR Number"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            <div className="text-left sm:text-right">
+                              <span className="text-[10px] text-zinc-500 block">Total Paid</span>
+                              <span className="font-black text-sm text-white">{formatPrice(order.totalAmount)}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {order.customerPhone && (
+                                <a
+                                  href={`https://wa.me/${order.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                    `Hello ${order.customerName}! Thank you for purchasing from AAA GAMES. Your Order #${order.id} is confirmed. Here are your digital game activation credentials:`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                                  title="Send Game Credentials to Customer on WhatsApp"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Deliver on WhatsApp</span>
+                                </a>
+                              )}
+
+                              <select
+                                value={order.status}
+                                onChange={(e) => updateOrderStatus(order.id, e.target.value as Order['status'])}
+                                className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500 capitalize font-medium"
+                              >
+                                <option value="delivered">Delivered</option>
+                                <option value="paid">Paid</option>
+                                <option value="processing">Processing</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Order items */}
+                        <div className="space-y-1.5 text-xs">
+                          {order.items.map((item, i) => (
+                            <div key={i} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between">
+                              <span className="text-white font-medium">{item.title} ({item.platform.toUpperCase()})</span>
+                              <span className="font-mono text-emerald-400">{formatPrice(item.price)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 5: NEWSLETTER SUBSCRIBERS */}
+          {activeTab === 'newsletter' && (
+            <div className="space-y-4">
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-emerald-400" />
+                    Captured Newsletter Email Subscribers ({subscribers.length})
+                  </h4>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Emails collected from the footer newsletter form for promotional game drops
+                  </p>
+                </div>
+
+                {subscribers.length > 0 && (
+                  <button
+                    onClick={handleCopySubscribers}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors"
+                  >
+                    {copiedEmails ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedEmails ? 'Copied Emails!' : 'Copy All Emails (CSV)'}</span>
+                  </button>
+                )}
+              </div>
+
+              {subscribers.length === 0 ? (
+                <div className="text-center py-12 p-6 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 text-xs">
+                  No subscribers yet. When users submit their email via the Footer newsletter, they will appear here!
+                </div>
+              ) : (
+                <div className="border border-zinc-800 rounded-2xl bg-zinc-950 overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-zinc-900/80 text-zinc-400 uppercase font-mono tracking-wider border-b border-zinc-800">
+                      <tr>
+                        <th className="py-3 px-4">Subscriber Email</th>
+                        <th className="py-3 px-4">Subscribed Date</th>
+                        <th className="py-3 px-4 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/80">
+                      {subscribers.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-zinc-900/50">
+                          <td className="py-3 px-4 font-mono font-medium text-white">{sub.email}</td>
+                          <td className="py-3 px-4 text-zinc-400">
+                            {sub.subscribedAt ? new Date(sub.subscribedAt).toLocaleString() : 'Recent'}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              Active
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 6: CUSTOMER REVIEWS MODERATION */}
+          {activeTab === 'reviews' && (
+            <div className="space-y-4">
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-amber-400" />
+                    Customer Reviews &amp; Testimonials Moderation ({reviews.length})
+                  </h4>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Live gamer reviews appearing on the store. You can audit and delete any invalid or spam reviews.
+                  </p>
+                </div>
+              </div>
+
+              {reviews.length === 0 ? (
+                <div className="text-center py-12 p-6 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 text-xs">
+                  No customer reviews found.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((rev) => (
+                    <div
+                      key={rev.id}
+                      className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-white text-xs">{rev.userName}</span>
+                          <div className="flex text-amber-400">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-3.5 h-3.5 ${
+                                  i < rev.rating
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : 'text-zinc-700'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          {rev.gameTitle && (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono truncate max-w-xs">
+                              {rev.gameTitle}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
+                            Verified Purchase
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-zinc-300">"{rev.comment}"</p>
+
+                        <span className="text-[10px] text-zinc-500 font-mono block">
+                          Posted: {new Date(rev.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteReviewItem(rev.id)}
+                        className="p-2 rounded-lg bg-zinc-900 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors flex items-center gap-1.5 text-xs flex-shrink-0"
+                        title="Delete Review"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 7: STORE ANALYTICS */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800">
+                  <span className="text-xs text-zinc-400 block">Gross Revenue</span>
+                  <span className="text-2xl font-black text-emerald-400 mt-1 block">
+                    {formatPrice(totalRevenue)}
+                  </span>
+                  <span className="text-[11px] text-zinc-500 mt-1 block">From verified digital sales</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800">
+                  <span className="text-xs text-zinc-400 block">Total Orders</span>
+                  <span className="text-2xl font-black text-white mt-1 block">{orders.length}</span>
+                  <span className="text-[11px] text-emerald-400 mt-1 block">Instant fulfillment</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800">
+                  <span className="text-xs text-zinc-400 block">Active Titles In Store</span>
+                  <span className="text-2xl font-black text-cyan-400 mt-1 block">{games.length}</span>
+                  <span className="text-[11px] text-zinc-500 mt-1 block">Catalog inventory</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800">
+                  <span className="text-xs text-zinc-400 block">Active Promo Vouchers</span>
+                  <span className="text-2xl font-black text-amber-400 mt-1 block">{coupons.length}</span>
+                  <span className="text-[11px] text-zinc-500 mt-1 block">Discounts enabled</span>
+                </div>
+              </div>
+
+              {/* Platform Distribution */}
+              <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4">
+                <h4 className="font-bold text-sm text-white">Catalog Platform Distribution</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-blue-950/40 border border-blue-500/30">
+                    <span className="text-blue-300 font-bold block">Steam PC Games</span>
+                    <span className="text-xl font-black text-white mt-1 block">{platformStats.steam} titles</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-700">
+                    <span className="text-zinc-300 font-bold block">Epic Games</span>
+                    <span className="text-xl font-black text-white mt-1 block">{platformStats.epic} titles</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30">
+                    <span className="text-indigo-300 font-bold block">PlayStation 5</span>
+                    <span className="text-xl font-black text-white mt-1 block">{platformStats.ps5} titles</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-sky-950/40 border border-sky-500/30">
+                    <span className="text-sky-300 font-bold block">PlayStation 4</span>
+                    <span className="text-xl font-black text-white mt-1 block">{platformStats.ps4} titles</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+};
