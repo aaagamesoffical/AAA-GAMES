@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">CheapPCGames</string>
+    <string name="app_tagline">Premier Digital Gaming Store</string>
+    <string name="nav_home">Store</string>
+    <string name="nav_deals">Flash Deals</string>
+    <string name="nav_wishlist">Wishlist</string>
+    <string name="nav_orders">My Orders</string>
+    <string name="nav_cart">Cart</string>
+    <string name="search_hint">Search games, genres, or platforms…</string>
+    <string name="platform_all">All</string>
+    <string name="platform_steam">Steam</string>
+    <string name="platform_epic">Epic Games</string>
+    <string name="platform_ps4">PlayStation 4</string>
+    <string name="platform_ps5">PlayStation 5</string>
+    <string name="delivery_instant">⚡ Instant Digital Delivery</string>
+    <string name="warranty_guarantee">🛡️ 100% Lifetime Warranty</string>
+    <string name="deals_title">Flash Deals of the Day</string>
+    <string name="deals_subtitle">Massive discounts up to 90% off</string>
+    <string name="catalog_title">Explore Games</string>
+    <string name="add_to_cart">Add to Cart</string>
+    <string name="in_cart">In Cart</string>
+    <string name="buy_now">Instant Buy</string>
+    <string name="checkout">Proceed to Checkout</string>
+    <string name="empty_cart">Your cart is empty</string>
+    <string name="empty_wishlist">Your wishlist is empty</string>
+    <string name="empty_orders">No orders found yet</string>
+    <string name="support_whatsapp">WhatsApp Support</string>
+    <string name="ai_assistant_title">Game Assistant</string>
+</resources>
