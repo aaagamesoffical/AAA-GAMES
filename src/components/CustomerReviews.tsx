@@ -112,19 +112,39 @@ export const CustomerReviews: React.FC<CustomerReviewsProps> = ({ games }) => {
 
           {/* Rating Summary & Action Button */}
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
-              <div className="text-2xl font-black text-emerald-400 font-mono">
-                {averageRating}
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex text-amber-400">
+            <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 p-3.5 rounded-2xl">
+              <div className="text-center">
+                <div className="text-3xl font-black text-emerald-400 font-mono">
+                  {averageRating}
+                </div>
+                <div className="flex text-amber-400 justify-center mt-0.5">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
-                <span className="text-[11px] text-zinc-400 block font-medium">
+                <span className="text-[10px] text-zinc-400 block font-medium mt-0.5">
                   {reviews.length} Verified Reviews
                 </span>
+              </div>
+
+              {/* Star breakdown bars */}
+              <div className="border-l border-zinc-800 pl-3.5 space-y-1 text-[11px] font-mono">
+                {[5, 4, 3].map((starVal) => {
+                  const count = reviews.filter((r) => r.rating === starVal).length;
+                  const pct = reviews.length > 0 ? Math.round((count / reviews.length) * 100) : 0;
+                  return (
+                    <div key={starVal} className="flex items-center gap-2">
+                      <span className="w-3 text-zinc-400">{starVal}★</span>
+                      <div className="w-20 sm:w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-amber-400 rounded-full" 
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-zinc-500 w-7 text-right">{pct}%</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -135,7 +155,7 @@ export const CustomerReviews: React.FC<CustomerReviewsProps> = ({ games }) => {
                 }
                 setIsWriteModalOpen(true);
               }}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4 text-zinc-950" />
               <span>Write a Review</span>
@@ -145,10 +165,10 @@ export const CustomerReviews: React.FC<CustomerReviewsProps> = ({ games }) => {
 
         {/* Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 text-xs">
-          <span className="text-zinc-500 font-semibold mr-1">Filter:</span>
+          <span className="text-zinc-500 font-semibold mr-1">Filter by Rating:</span>
           <button
             onClick={() => setFilterRating('all')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-colors ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
               filterRating === 'all'
                 ? 'bg-emerald-500 text-zinc-950'
                 : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
@@ -156,20 +176,23 @@ export const CustomerReviews: React.FC<CustomerReviewsProps> = ({ games }) => {
           >
             All Reviews ({reviews.length})
           </button>
-          {[5, 4, 3].map((r) => (
-            <button
-              key={r}
-              onClick={() => setFilterRating(r)}
-              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 transition-colors ${
-                filterRating === r
-                  ? 'bg-emerald-500 text-zinc-950'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
-              }`}
-            >
-              <span>{r}</span>
-              <Star className={`w-3.5 h-3.5 ${filterRating === r ? 'fill-zinc-950' : 'fill-amber-400 text-amber-400'}`} />
-            </button>
-          ))}
+          {[5, 4, 3].map((r) => {
+            const count = reviews.filter((rev) => rev.rating === r).length;
+            return (
+              <button
+                key={r}
+                onClick={() => setFilterRating(r)}
+                className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+                  filterRating === r
+                    ? 'bg-emerald-500 text-zinc-950'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                }`}
+              >
+                <span>{r} Stars ({count})</span>
+                <Star className={`w-3.5 h-3.5 ${filterRating === r ? 'fill-zinc-950' : 'fill-amber-400 text-amber-400'}`} />
+              </button>
+            );
+          })}
         </div>
 
         {/* Reviews Grid */}

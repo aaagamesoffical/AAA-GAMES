@@ -25,7 +25,7 @@ const FAQS: FAQItem[] = [
   },
   {
     question: 'What is your Lifetime Replacement Warranty?',
-    answer: 'We provide a lifetime replacement guarantee on all games and accounts purchased from CheapPCGames. If you ever face password changes, Steam guards, or setup issues, simply message our 24/7 WhatsApp customer care with your Order ID for an immediate free replacement or fix.'
+    answer: 'We provide a lifetime replacement guarantee on all games and accounts purchased from AAA GAMES. If you ever face password changes, Steam guards, or setup issues, simply message our 24/7 WhatsApp customer care (+91 9442964232) with your Order ID for an immediate free replacement or fix.'
   },
   {
     question: 'What payment methods do you accept?',

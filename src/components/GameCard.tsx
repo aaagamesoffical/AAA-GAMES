@@ -67,6 +67,14 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
           alt={game.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            if (game.steamAppId) {
+              target.src = `https://shared.steamstatic.com/store_item_assets/steam/apps/${game.steamAppId}/header.jpg`;
+            } else if (game.bannerImage) {
+              target.src = game.bannerImage;
+            }
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
 

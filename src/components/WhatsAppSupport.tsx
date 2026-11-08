@@ -5,7 +5,7 @@ interface WhatsAppSupportProps {
   whatsappNumber?: string;
 }
 
-export const WhatsAppSupport: React.FC<WhatsAppSupportProps> = ({ whatsappNumber = '+919876543210' }) => {
+export const WhatsAppSupport: React.FC<WhatsAppSupportProps> = ({ whatsappNumber = '+919442964232' }) => {
   const [showTooltip, setShowTooltip] = useState(true);
   const cleanPhone = whatsappNumber.replace(/[^0-9]/g, '');
 
@@ -21,16 +21,16 @@ export const WhatsAppSupport: React.FC<WhatsAppSupportProps> = ({ whatsappNumber
           </button>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <strong className="text-emerald-400 font-bold">CheapPCGames Support Online</strong>
+            <strong className="text-emerald-400 font-bold">AAA GAMES Live WhatsApp (+91 9442964232)</strong>
           </div>
           <p className="text-[11px] text-zinc-300 leading-tight">
-            Need instant key delivery, game setup help, or custom game request? Chat with us!
+            Need payment confirmation, key dispatch, or game setup help? Chat directly with store owner!
           </p>
         </div>
       )}
 
       <a
-        href={`https://wa.me/${cleanPhone}?text=Hello%20CheapPCGames%2C%20I%20have%20a%20question%20about%20a%20game%20purchase.`}
+        href={`https://wa.me/${cleanPhone}?text=Hello%20AAA%20GAMES%2C%20I%20have%20a%20question%20about%20a%20game%20purchase.`}
         target="_blank"
         rel="noopener noreferrer"
         className="group flex items-center gap-2.5 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm shadow-xl shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95"

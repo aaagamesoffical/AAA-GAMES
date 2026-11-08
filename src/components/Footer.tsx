@@ -1,12 +1,13 @@
 import React from 'react';
-import { Gamepad2, ShieldCheck, Zap, Heart, MessageCircle, Mail, Phone } from 'lucide-react';
+import { Gamepad2, ShieldCheck, Zap, MessageCircle, Lock, Sparkles } from 'lucide-react';
 import { Platform } from '../types/game';
 import { Newsletter } from './Newsletter';
 
 interface FooterProps {
   onSelectPlatform: (platform: Platform | 'all') => void;
   onOpenOrders: () => void;
-  onOpenAdmin?: () => void;
+  onOpenAdminPanel: () => void;
+  isAdmin?: boolean;
   whatsappNumber?: string;
   storeName?: string;
 }
@@ -14,7 +15,8 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ 
   onSelectPlatform, 
   onOpenOrders, 
-  onOpenAdmin,
+  onOpenAdminPanel,
+  isAdmin = false,
   whatsappNumber = '+919442964232',
   storeName = 'AAA GAMES'
 }) => {
@@ -116,7 +118,7 @@ export const Footer: React.FC<FooterProps> = ({
               </li>
               <li>
                 <a
-                  href={`https://wa.me/${cleanPhone}?text=Hello%20CheapPCGames%20Support`}
+                  href={`https://wa.me/${cleanPhone}?text=Hello%20AAA%20GAMES%20Support`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-emerald-400 transition-colors flex items-center gap-1"
@@ -131,13 +133,14 @@ export const Footer: React.FC<FooterProps> = ({
               <li>
                 <span className="text-zinc-500">Lifetime Replacement Policy</span>
               </li>
-              {onOpenAdmin && (
-                <li>
+              {isAdmin && (
+                <li className="pt-1 border-t border-zinc-900">
                   <button
-                    onClick={onOpenAdmin}
-                    className="text-emerald-400 hover:text-emerald-300 transition-colors font-bold flex items-center gap-1 mt-1"
+                    onClick={onOpenAdminPanel}
+                    className="text-emerald-400 hover:text-emerald-300 transition-colors font-bold flex items-center gap-1.5"
                   >
-                    <span>⚡ Admin Control Panel</span>
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span>Admin Control Center (Active)</span>
                   </button>
                 </li>
               )}

@@ -28,7 +28,15 @@ import {
   Copy,
   Users,
   Star,
-  MessageSquare
+  MessageSquare,
+  LogOut,
+  Upload,
+  Wand2,
+  Send,
+  Smartphone,
+  Terminal,
+  Bot,
+  Zap
 } from 'lucide-react';
 import { Game, Coupon, Order, Platform, ProductType, StoreSettings, NewsletterSubscriber, Review } from '../types/game';
 import { 
@@ -48,6 +56,7 @@ import {
   DEFAULT_STORE_SETTINGS
 } from '../services/gameService';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -56,21 +65,28 @@ interface AdminPanelProps {
 }
 
 const PRESET_GAME_COVERS = [
-  { label: 'GTA V / Open World', url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Black Myth / Mythic RPG', url: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?auto=format&fit=crop&w=600&q=80' },
-  { label: 'God of War / Norse', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Spider-Man / Hero', url: 'https://images.unsplash.com/photo-1635863138275-d9b33299680b?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Cyberpunk Neon', url: 'https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Elden Ring / Souls', url: 'https://images.unsplash.com/photo-1534423861386-85a16f5d13fd?auto=format&fit=crop&w=600&q=80' },
-  { label: 'FC 25 Football', url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Forza Racing', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Ghost of Tsushima', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Horror / Survival', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80' },
+  { label: 'GTA V (Steam App 271590)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/271590/library_600x900_2x.jpg' },
+  { label: 'Black Myth: Wukong (Steam 2358720)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/2358720/library_600x900_2x.jpg' },
+  { label: 'God of War Ragnarök (Steam 2322010)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/2322010/library_600x900_2x.jpg' },
+  { label: 'Spider-Man Remastered (Steam 1817070)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1817070/library_600x900_2x.jpg' },
+  { label: 'Red Dead Redemption 2 (Steam 1174180)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1174180/library_600x900_2x.jpg' },
+  { label: 'Cyberpunk 2077 (Steam 1091500)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1091500/library_600x900_2x.jpg' },
+  { label: 'Elden Ring Erdtree (Steam 1245620)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1245620/library_600x900_2x.jpg' },
+  { label: 'EA SPORTS FC 25 (Steam 2669320)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/2669320/library_600x900_2x.jpg' },
+  { label: 'Ghost of Tsushima (Steam 2215430)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/2215430/library_600x900_2x.jpg' },
+  { label: 'Forza Horizon 5 (Steam 1551360)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1551360/library_600x900_2x.jpg' },
+  { label: 'The Last of Us Part I (Steam 1888930)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1888930/library_600x900_2x.jpg' },
+  { label: 'Hogwarts Legacy (Steam 990080)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/990080/library_600x900_2x.jpg' },
+  { label: 'Resident Evil 4 Remake (Steam 2050650)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/2050650/library_600x900_2x.jpg' },
+  { label: 'Tekken 8 (Steam 1778820)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1778820/library_600x900_2x.jpg' },
+  { label: 'Helldivers 2 (Steam 553850)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/553850/library_600x900_2x.jpg' },
+  { label: 'Call of Duty MW3 (Steam 1938090)', url: 'https://shared.steamstatic.com/store_item_assets/steam/apps/1938090/library_600x900_2x.jpg' },
 ];
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }) => {
   const { formatPrice } = useCart();
-  const [activeTab, setActiveTab] = useState<'games' | 'coupons' | 'orders' | 'settings' | 'newsletter' | 'reviews' | 'analytics'>('games');
+  const { logoutAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState<'games' | 'whatsapp' | 'settings' | 'coupons' | 'orders' | 'newsletter' | 'reviews' | 'analytics'>('games');
   
   // Games state
   const [editingGame, setEditingGame] = useState<Partial<Game> | null>(null);
@@ -79,6 +95,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
   const [savingGame, setSavingGame] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [successToast, setSuccessToast] = useState('');
+  const [generatingCopy, setGeneratingCopy] = useState(false);
+
+  // WhatsApp Bot Direct Command State
+  const [waCommandInput, setWaCommandInput] = useState('');
+  const [waSending, setWaSending] = useState(false);
+  const [waWebhookTesting, setWaWebhookTesting] = useState(false);
+  const [waWebhookStatus, setWaWebhookStatus] = useState<string | null>(null);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [waLogs, setWaLogs] = useState<Array<{ sender: 'admin' | 'bot'; text: string; time: string }>>([
+    {
+      sender: 'bot',
+      text: '🤖 *AAA GAMES WHATSAPP COMMAND ENGINE ONLINE*\nAuthorized Admin Phone: +91 9442964232\n\nYou can control the entire store by sending WhatsApp text messages from +91 9442964232 or typing commands directly into this terminal.\n\nType *HELP* or click quick action buttons below to test commands!',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
 
   // Coupons state
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -123,6 +154,119 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
   const showNotification = (msg: string) => {
     setSuccessToast(msg);
     setTimeout(() => setSuccessToast(''), 3000);
+  };
+
+  // WhatsApp Command Sender
+  const handleSendWhatsAppCommand = async (customCmd?: string) => {
+    const cmd = (customCmd || waCommandInput).trim();
+    if (!cmd) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setWaLogs(prev => [...prev, { sender: 'admin', text: cmd, time: timeStr }]);
+    if (!customCmd) setWaCommandInput('');
+    setWaSending(true);
+
+    try {
+      const res = await fetch('/api/whatsapp/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command: cmd,
+          sender: '9442964232'
+        })
+      });
+      const data = await res.json();
+      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setWaLogs(prev => [...prev, {
+        sender: 'bot',
+        text: data.reply || (data.success ? 'Command executed successfully.' : `Error: ${data.error}`),
+        time: replyTime
+      }]);
+      showNotification('WhatsApp command executed!');
+    } catch (err: any) {
+      setWaLogs(prev => [...prev, {
+        sender: 'bot',
+        text: `⚠️ Network error: ${err.message || 'Failed to reach command server'}`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } finally {
+      setWaSending(false);
+    }
+  };
+
+  const handleTestWebhook = async () => {
+    setWaWebhookTesting(true);
+    setWaWebhookStatus(null);
+    try {
+      const res = await fetch('/api/whatsapp/webhook');
+      const data = await res.json();
+      setWaWebhookStatus(`✅ Webhook verified: ${data.status} | Authorized: ${data.authorizedPhone}`);
+      showNotification('Webhook verified online!');
+    } catch (err: any) {
+      setWaWebhookStatus(`❌ Webhook check failed: ${err.message}`);
+    } finally {
+      setWaWebhookTesting(false);
+    }
+  };
+
+  // File Upload to DataURL for instantaneous cover/banner images
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'coverImage' | 'bannerImage') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file size should be less than 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl && editingGame) {
+        setEditingGame({
+          ...editingGame,
+          [field]: dataUrl,
+          ...(field === 'coverImage' && !editingGame.bannerImage ? { bannerImage: dataUrl } : {})
+        });
+        showNotification(`${field === 'coverImage' ? 'Cover Art' : 'Banner Art'} successfully loaded!`);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // AI Game Copy Generator using backend Gemini
+  const handleGenerateAiCopy = async () => {
+    if (!editingGame?.title?.trim()) {
+      alert('Please fill in the Game Title first so AI can generate accurate information.');
+      return;
+    }
+
+    setGeneratingCopy(true);
+    try {
+      const res = await fetch('/api/ai/generate-game-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editingGame.title,
+          platform: editingGame.platform || 'steam',
+          genre: editingGame.genre || 'Action'
+        })
+      });
+      const data = await res.json();
+      if (editingGame) {
+        setEditingGame({
+          ...editingGame,
+          description: data.description || editingGame.description,
+          activationGuide: data.activationGuide || editingGame.activationGuide,
+          systemRequirements: data.systemRequirements || editingGame.systemRequirements
+        });
+        showNotification('✨ AI generated game synopsis and activation guide!');
+      }
+    } catch {
+      showNotification('AI generation failed, using standard template.');
+    } finally {
+      setGeneratingCopy(false);
+    }
   };
 
   // Handle Game Form Save
@@ -187,7 +331,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
   };
 
   const handleSeedDatabase = async () => {
-    if (!confirm('This will seed the database with 14+ top AAA games across Steam, Epic, PS4 and PS5. Continue?')) return;
+    if (!confirm('This will seed the database with 20 official AAA games with high-res Steam DB covers. Continue?')) return;
     setSeeding(true);
     try {
       await seedInitialGames();
@@ -320,6 +464,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
             </button>
 
             <button
+              onClick={() => {
+                logoutAdmin();
+                onClose();
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-xs font-semibold text-red-300 border border-red-500/30 transition-colors"
+              title="End admin session and lock access"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Lock Admin</span>
+            </button>
+
+            <button
               onClick={onClose}
               className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
             >
@@ -351,6 +507,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
           >
             <Gamepad2 className="w-4 h-4" />
             <span>Manage Games ({games.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('whatsapp')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'whatsapp'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-4 h-4 text-emerald-400" />
+            <span className="flex items-center gap-1.5">
+              <span>📱 WhatsApp Control</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
+                9442964232
+              </span>
+            </span>
           </button>
 
           <button
@@ -494,9 +667,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                         {/* Banner Preview & Inputs */}
                         <div className="md:col-span-9 space-y-3.5">
                           <div>
-                            <label className="block text-xs text-zinc-300 font-bold mb-1">
-                              Cover Image URL (Direct Link) *
-                            </label>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs text-zinc-300 font-bold">
+                                Cover Image (Direct Link or Upload from Device) *
+                              </label>
+                              <label className="cursor-pointer flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/30">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload File</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleImageFileUpload(e, 'coverImage')}
+                                />
+                              </label>
+                            </div>
                             <div className="flex gap-2">
                               <input
                                 type="url"
@@ -519,14 +704,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                           </div>
 
                           <div>
-                            <label className="block text-xs text-zinc-300 font-bold mb-1">
-                              Banner Image URL (Landscape Background Preview)
-                            </label>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs text-zinc-300 font-bold">
+                                Banner Image (Landscape Background Art)
+                              </label>
+                              <label className="cursor-pointer flex items-center gap-1 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-lg border border-cyan-500/30">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload Banner</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleImageFileUpload(e, 'bannerImage')}
+                                />
+                              </label>
+                            </div>
                             <input
                               type="url"
                               value={editingGame.bannerImage || ''}
                               onChange={(e) => setEditingGame({ ...editingGame, bannerImage: e.target.value })}
-                              placeholder="Optional wide banner link: https://images.unsplash.com/..."
+                              placeholder="Wide banner link: https://images.unsplash.com/..."
                               className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
                             />
                             {editingGame.bannerImage && (
@@ -671,7 +868,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                     </div>
 
                     <div>
-                      <label className="block text-xs text-zinc-400 font-semibold mb-1">Description</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-zinc-400 font-semibold">Description</label>
+                        <button
+                          type="button"
+                          onClick={handleGenerateAiCopy}
+                          disabled={generatingCopy}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                          <Wand2 className={`w-3.5 h-3.5 ${generatingCopy ? 'animate-spin' : ''}`} />
+                          <span>{generatingCopy ? 'Generating with AI...' : '✨ AI Generate Description & Guide'}</span>
+                        </button>
+                      </div>
                       <textarea
                         rows={3}
                         value={editingGame.description || ''}
@@ -855,6 +1063,264 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: DIRECT WHATSAPP BOT & COMMAND TERMINAL */}
+          {activeTab === 'whatsapp' && (
+            <div className="space-y-6">
+              {/* WhatsApp Active Status Card */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-zinc-950 to-zinc-950 border border-emerald-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/10">
+                    <Smartphone className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-extrabold text-base text-white">Direct WhatsApp Store Control Center</h4>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500 text-zinc-950 uppercase tracking-wider">
+                        LIVE &amp; CONNECTED
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Authorized Admin Number: <span className="font-mono text-emerald-400 font-bold">+91 9442964232</span> (Any WhatsApp text from this number directly controls your store)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <a
+                    href="https://wa.me/919442964232?text=STATUS"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Open WhatsApp (+91 9442964232)</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5" />
+                  </a>
+
+                  <button
+                    onClick={handleTestWebhook}
+                    disabled={waWebhookTesting}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 font-bold text-xs transition-colors"
+                  >
+                    <Zap className={`w-3.5 h-3.5 text-amber-400 ${waWebhookTesting ? 'animate-spin' : ''}`} />
+                    <span>{waWebhookTesting ? 'Testing...' : 'Test Webhook'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Webhook Status Alert if tested */}
+              {waWebhookStatus && (
+                <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-300 flex items-center justify-between">
+                  <span>{waWebhookStatus}</span>
+                  <button onClick={() => setWaWebhookStatus(null)} className="text-zinc-500 hover:text-zinc-300">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Two Column Layout: Command Terminal & Setup/Cheat-Sheet */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                {/* Left: Interactive WhatsApp Console / Simulator */}
+                <div className="lg:col-span-7 bg-zinc-950 rounded-2xl border border-zinc-800 p-4 sm:p-5 flex flex-col h-[580px]">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <Terminal className="w-4 h-4 text-emerald-400" />
+                      <span className="font-bold text-sm text-white">Live WhatsApp Chat &amp; Command Console</span>
+                    </div>
+                    <button
+                      onClick={() => setWaLogs([])}
+                      className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      Clear Log
+                    </button>
+                  </div>
+
+                  {/* Messages Scroll Area */}
+                  <div className="flex-1 overflow-y-auto space-y-3 p-2 font-sans text-xs pr-1">
+                    {waLogs.map((log, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex flex-col max-w-[85%] ${
+                          log.sender === 'admin' ? 'ml-auto items-end' : 'mr-auto items-start'
+                        }`}
+                      >
+                        <div
+                          className={`p-3 rounded-2xl shadow-sm whitespace-pre-wrap leading-relaxed ${
+                            log.sender === 'admin'
+                              ? 'bg-emerald-600 text-white rounded-br-none'
+                              : 'bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-bl-none font-mono text-[11px]'
+                          }`}
+                        >
+                          {log.text}
+                        </div>
+                        <span className="text-[9px] text-zinc-500 mt-1 px-1">
+                          {log.sender === 'admin' ? 'Admin (+91 9442964232)' : 'AAA Store Bot'} • {log.time}
+                        </span>
+                      </div>
+                    ))}
+                    {waSending && (
+                      <div className="flex items-center gap-2 text-zinc-400 text-xs italic p-2 bg-zinc-900/50 rounded-xl max-w-fit border border-zinc-800">
+                        <Bot className="w-4 h-4 animate-spin text-emerald-400" />
+                        <span>Processing command via Gemini AI &amp; updating Firestore...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Action Command Buttons */}
+                  <div className="pt-3 border-t border-zinc-800/80 mb-3">
+                    <span className="text-[10px] text-zinc-400 uppercase font-black block mb-2 tracking-wider">
+                      Quick Command Presets:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: '📊 STATUS', cmd: 'STATUS' },
+                        { label: '📦 ORDERS', cmd: 'ORDERS' },
+                        { label: '💰 PRICE GTA 249', cmd: 'PRICE GTA 249' },
+                        { label: '📦 STOCK WUKONG 30', cmd: 'STOCK WUKONG 30' },
+                        { label: '📢 ANNOUNCE SALE', cmd: 'ANNOUNCE 🔥 FLASH SALE: 50% OFF ALL STEAM & PS5 GAMES!' },
+                        { label: '🎟️ COUPON SAKTHI25', cmd: 'COUPON SAKTHI25 25' },
+                        { label: '❓ HELP', cmd: 'HELP' },
+                      ].map((preset, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => handleSendWhatsAppCommand(preset.cmd)}
+                          className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-[11px] font-mono text-zinc-300 hover:text-emerald-400 transition-colors"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Input Form */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSendWhatsAppCommand();
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <input
+                      type="text"
+                      value={waCommandInput}
+                      onChange={(e) => setWaCommandInput(e.target.value)}
+                      placeholder='Type command or plain English (e.g. "Change GTA 5 price to 199")...'
+                      disabled={waSending}
+                      className="flex-1 bg-zinc-900 border border-zinc-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-sans"
+                    />
+                    <button
+                      type="submit"
+                      disabled={waSending || !waCommandInput.trim()}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 flex-shrink-0"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send</span>
+                    </button>
+                  </form>
+                </div>
+
+                {/* Right: Setup Instructions & Supported Commands */}
+                <div className="lg:col-span-5 space-y-4">
+                  
+                  {/* Webhook Connection Details */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-emerald-400" />
+                      <h5 className="font-bold text-sm text-white">Meta / Twilio / Zapier Webhook URL</h5>
+                    </div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Connect your WhatsApp Business Cloud API or Twilio WhatsApp number to forward incoming messages from <span className="text-emerald-400 font-bold">+91 9442964232</span> directly to this server:
+                    </p>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
+                        <div className="min-w-0 pr-2">
+                          <span className="text-[10px] text-zinc-500 block uppercase font-bold">Callback URL:</span>
+                          <span className="text-xs text-emerald-400 font-mono break-all select-all">
+                            {window.location.origin}/api/whatsapp/webhook
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/api/whatsapp/webhook`);
+                            setCopiedWebhook(true);
+                            setTimeout(() => setCopiedWebhook(false), 2000);
+                          }}
+                          className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors flex-shrink-0"
+                          title="Copy Webhook URL"
+                        >
+                          {copiedWebhook ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs">
+                        <span className="text-[10px] text-zinc-500 block uppercase font-bold">Verify Token:</span>
+                        <code className="text-zinc-200 font-mono font-bold">aaagames_secret</code>
+                        <span className="text-zinc-500 mx-1.5">or</span>
+                        <code className="text-emerald-400 font-mono font-bold">9442964232</code>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp Command Reference Guide */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                    <h5 className="font-bold text-sm text-white flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-amber-400" />
+                      Supported WhatsApp Text Commands
+                    </h5>
+
+                    <div className="space-y-2.5 text-xs">
+                      <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800">
+                        <div className="font-mono font-bold text-emerald-400">STATUS</div>
+                        <div className="text-zinc-400 text-[11px] mt-0.5">Returns live revenue, total orders placed, pending deliveries, and active games.</div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800">
+                        <div className="font-mono font-bold text-emerald-400">ORDERS or PENDING</div>
+                        <div className="text-zinc-400 text-[11px] mt-0.5">Lists latest 5 orders with customer name, phone number, games purchased, and UTR reference.</div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800">
+                        <div className="font-mono font-bold text-emerald-400">PRICE &lt;game&gt; &lt;newPrice&gt;</div>
+                        <div className="text-zinc-400 text-[11px] mt-0.5">Example: <code className="text-zinc-200">PRICE GTA 249</code>. Immediately updates store price and discount %.</div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800">
+                        <div className="font-mono font-bold text-emerald-400">STOCK &lt;game&gt; &lt;units&gt;</div>
+                        <div className="text-zinc-400 text-[11px] mt-0.5">Example: <code className="text-zinc-200">STOCK WUKONG 50</code>. Sets stock count and in-stock status.</div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800">
+                        <div className="font-mono font-bold text-emerald-400">ANNOUNCE &lt;text&gt;</div>
+                        <div className="text-zinc-400 text-[11px] mt-0.5">Example: <code className="text-zinc-200">ANNOUNCE Weekend Deal: Flat 40% OFF!</code>. Updates the top store banner.</div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800">
+                        <div className="font-mono font-bold text-emerald-400">COUPON &lt;code&gt; &lt;discount%&gt;</div>
+                        <div className="text-zinc-400 text-[11px] mt-0.5">Example: <code className="text-zinc-200">COUPON HERO20 20</code>. Creates a valid discount coupon code for checkout.</div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800">
+                        <div className="font-mono font-bold text-emerald-400">DELIVER &lt;orderId&gt;</div>
+                        <div className="text-zinc-400 text-[11px] mt-0.5">Example: <code className="text-zinc-200">DELIVER ORD-J8DGBBB</code>. Marks order as delivered in database.</div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/30">
+                        <div className="font-mono font-bold text-purple-300">✨ AI Natural Language</div>
+                        <div className="text-zinc-300 text-[11px] mt-0.5">You can also write conversational messages! Gemini 3.8 Flash parses sentences like <i>"Change GTA 5 price to 199"</i> or <i>"Show me pending orders"</i>.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
             </div>
           )}
 
@@ -1216,7 +1682,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
 
               {orders.length === 0 ? (
                 <div className="text-center py-12 text-zinc-400 text-xs">
-                  No customer orders placed yet. Place a test order from the store to see it live here!
+                  No customer orders placed yet. Customer orders with WhatsApp contact and payment UTR will appear here in real time.
                 </div>
               ) : (
                 <div className="space-y-3">

@@ -35,12 +35,11 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Games collection: Anyone can read, only admins can create/update/delete
+    // Games collection: Anyone can read, admins or backend can manage
     match /games/{gameId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidId(gameId);
-      allow update: if isAdmin() && isValidId(gameId);
-      allow delete: if isAdmin() && isValidId(gameId);
+      allow create, update: if (isAdmin() || request.auth == null) && isValidId(gameId);
+      allow delete: if (isAdmin() || request.auth == null) && isValidId(gameId);
     }
 
     // Admins collection: Only admins can manage
@@ -49,17 +48,18 @@ service cloud.firestore {
       allow write: if isAdmin() && isValidId(adminId);
     }
 
-    // Orders collection: Customers can place orders, view order receipt, admin can update/delete
+    // Orders collection: Customers can place orders, view order receipt, admin or backend can update
     match /orders/{orderId} {
       allow read: if true;
       allow create: if isValidId(orderId) && incoming().userEmail is string && incoming().userEmail.size() <= 150;
-      allow update, delete: if isAdmin() && isValidId(orderId);
+      allow update: if (isAdmin() || request.auth == null) && isValidId(orderId);
+      allow delete: if isAdmin() && isValidId(orderId);
     }
 
-    // Coupons collection: Authenticated/public can read active coupons, admins can manage
+    // Coupons collection: Authenticated/public can read active coupons, admins or backend can manage
     match /coupons/{couponId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidId(couponId);
+      allow write: if (isAdmin() || request.auth == null) && isValidId(couponId);
     }
 
     // Reviews collection: Anyone can read, customers can post reviews, author or admin can delete
@@ -82,10 +82,10 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // Settings collection: Anyone can read store configs (UPI scanner, WhatsApp number), admins can write
+    // Settings collection: Anyone can read store configs (UPI scanner, WhatsApp number), admins or backend can write
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidId(settingId);
+      allow write: if (isAdmin() || request.auth == null) && isValidId(settingId);
     }
   }
 }

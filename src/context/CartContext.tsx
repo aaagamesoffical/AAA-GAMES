@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Game, CartItem, Coupon } from '../types/game';
+import { INITIAL_COUPONS } from '../data/initialGames';
+import { subscribeToCoupons } from '../services/gameService';
 
 interface CartContextType {
   items: CartItem[];
@@ -10,7 +12,9 @@ interface CartContextType {
   subtotal: number;
   appliedCoupon: Coupon | null;
   applyCoupon: (coupon: Coupon) => void;
+  applyCouponCode: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
+  availableCoupons: Coupon[];
   discountAmount: number;
   finalTotal: number;
   currency: 'INR' | 'USD';
@@ -49,6 +53,44 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  
+  // Available Coupons: default to INITIAL_COUPONS, seamlessly enriched by Firestore
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>(() => {
+    return INITIAL_COUPONS.map((c) => ({
+      id: c.code,
+      code: c.code,
+      discountPercent: c.discountPercent,
+      minSpend: c.minSpend,
+      isActive: c.isActive,
+      createdAt: new Date().toISOString()
+    }));
+  });
+
+  useEffect(() => {
+    const unsub = subscribeToCoupons((firestoreCoupons) => {
+      if (firestoreCoupons && firestoreCoupons.length > 0) {
+        // Merge without duplicates
+        const map = new Map<string, Coupon>();
+        INITIAL_COUPONS.forEach((c) => {
+          map.set(c.code.toUpperCase(), {
+            id: c.code,
+            code: c.code,
+            discountPercent: c.discountPercent,
+            minSpend: c.minSpend,
+            isActive: c.isActive,
+            createdAt: new Date().toISOString()
+          });
+        });
+        firestoreCoupons.forEach((c) => {
+          if (c.isActive) {
+            map.set(c.code.toUpperCase(), c);
+          }
+        });
+        setAvailableCoupons(Array.from(map.values()));
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('cheap_cart', JSON.stringify(items));
@@ -95,11 +137,62 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const finalTotal = Math.max(0, subtotal - discountAmount);
 
   const applyCoupon = (coupon: Coupon) => {
-    if (subtotal < coupon.minSpend) {
+    if (subtotal < (coupon.minSpend || 0)) {
       alert(`Minimum spend of ₹${coupon.minSpend} required for coupon ${coupon.code}`);
       return;
     }
     setAppliedCoupon(coupon);
+  };
+
+  const applyCouponCode = (rawCode: string): { success: boolean; message: string } => {
+    const cleanCode = rawCode.trim().toUpperCase();
+    if (!cleanCode) {
+      return { success: false, message: 'Please enter a coupon code.' };
+    }
+
+    if (items.length === 0) {
+      return { success: false, message: 'Add at least one game to your cart first.' };
+    }
+
+    // Check available coupons
+    const match = availableCoupons.find((c) => c.code.toUpperCase() === cleanCode);
+    if (!match) {
+      // Check popular fallback codes
+      if (cleanCode === 'AAAGAMES' || cleanCode === 'AAA') {
+        const fallback = { id: 'AAAGAMES', code: 'AAAGAMES', discountPercent: 15, minSpend: 0, isActive: true, createdAt: '' };
+        setAppliedCoupon(fallback);
+        return { success: true, message: 'Coupon AAAGAMES applied! 15% discount granted.' };
+      }
+      if (cleanCode === 'SAKTHI20' || cleanCode === 'SAKTHI') {
+        const fallback = { id: 'SAKTHI20', code: 'SAKTHI20', discountPercent: 20, minSpend: 0, isActive: true, createdAt: '' };
+        setAppliedCoupon(fallback);
+        return { success: true, message: 'Coupon SAKTHI20 applied! 20% discount granted.' };
+      }
+      if (cleanCode === 'CHEAPGAMER') {
+        const fallback = { id: 'CHEAPGAMER', code: 'CHEAPGAMER', discountPercent: 10, minSpend: 0, isActive: true, createdAt: '' };
+        setAppliedCoupon(fallback);
+        return { success: true, message: 'Coupon CHEAPGAMER applied! 10% discount granted.' };
+      }
+      if (cleanCode === 'STEAM50') {
+        const fallback = { id: 'STEAM50', code: 'STEAM50', discountPercent: 15, minSpend: 0, isActive: true, createdAt: '' };
+        setAppliedCoupon(fallback);
+        return { success: true, message: 'Coupon STEAM50 applied! 15% discount granted.' };
+      }
+      return { success: false, message: `Coupon code "${cleanCode}" is invalid or expired.` };
+    }
+
+    if (subtotal < (match.minSpend || 0)) {
+      return { 
+        success: false, 
+        message: `Cart total of ₹${subtotal} is less than minimum requirement of ₹${match.minSpend}.` 
+      };
+    }
+
+    setAppliedCoupon(match);
+    return { 
+      success: true, 
+      message: `Coupon "${match.code}" applied! You saved ${match.discountPercent}%.` 
+    };
   };
 
   const removeCoupon = () => {
@@ -127,7 +220,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subtotal,
         appliedCoupon,
         applyCoupon,
+        applyCouponCode,
         removeCoupon,
+        availableCoupons,
         discountAmount,
         finalTotal,
         currency,

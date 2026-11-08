@@ -7,7 +7,7 @@ interface BannerProps {
 }
 
 export const Banner: React.FC<BannerProps> = ({ 
-  announcementText = '🔥 MEGA LAUNCH: Use code CHEAPGAMER for 10% instant discount! Instant WhatsApp Delivery to +91 94429 64232',
+  announcementText = '🔥 SPECIAL OFFER: Use code AAAGAMES for 10% instant discount! Instant WhatsApp Delivery to +91 94429 64232',
   whatsappNumber = '+919442964232'
 }) => {
   const cleanPhone = whatsappNumber.replace(/[^0-9]/g, '');

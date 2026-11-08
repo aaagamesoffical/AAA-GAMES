@@ -111,9 +111,12 @@ export const Hero: React.FC<HeroProps> = ({
               {/* Game Banner Highlight */}
               <div className="relative rounded-xl overflow-hidden aspect-video mb-4 group cursor-pointer shadow-lg">
                 <img
-                  src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80"
-                  alt="GTA V Deal"
+                  src="https://shared.steamstatic.com/store_item_assets/steam/apps/271590/library_hero.jpg"
+                  alt="Grand Theft Auto V: Premium Edition"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://shared.steamstatic.com/store_item_assets/steam/apps/271590/header.jpg";
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
                 <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">

@@ -4,15 +4,11 @@ import {
   User, 
   Lock, 
   Mail, 
-  Sparkles, 
-  ShieldCheck, 
   ArrowRight,
   CheckCircle2,
-  KeyRound,
   Eye,
   EyeOff,
   Gamepad2,
-  Zap,
   ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -39,10 +35,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const { 
     loginWithGoogle, 
     loginWithEmail, 
-    registerWithEmail, 
-    adminEmail, 
-    isAdminBypassActive, 
-    toggleAdminBypass 
+    registerWithEmail
   } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
@@ -287,16 +280,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div>
               <label className="block text-xs text-zinc-300 font-semibold mb-1">
-                Email Address
+                Email Address or WhatsApp Number
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
                 <input
-                  type="email"
+                  type="text"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your.email@gmail.com"
+                  placeholder="your.email@gmail.com or 9442964232"
                   className="w-full pl-10 pr-3 py-2.5 bg-zinc-900 border border-zinc-700/80 rounded-xl text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
@@ -367,34 +360,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             )}
           </form>
 
-          {/* Admin Account Notice & Preview Bypass */}
-          <div className="pt-3 border-t border-zinc-800/80 space-y-2">
-            <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Verified Admin Account</span>
-              </div>
-              <p>
-                Logging in with <strong className="text-zinc-200">{adminEmail}</strong> unlocks full control of games, pricing, UPI scanner &amp; orders.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between text-xs pt-1">
-              <span className="text-zinc-500 text-[11px]">Developer Mode:</span>
-              <button
-                type="button"
-                onClick={toggleAdminBypass}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
-                  isAdminBypassActive
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-white'
-                }`}
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>{isAdminBypassActive ? 'Admin Mode ACTIVE' : 'Enable Admin Preview'}</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

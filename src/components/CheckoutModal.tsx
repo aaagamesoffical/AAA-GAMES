@@ -14,7 +14,9 @@ import {
   MessageCircle,
   Lock,
   Building2,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useCart } from '../context/CartContext';
@@ -44,8 +46,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onOpenOrders, 
   storeSettings 
 }) => {
-  const { items, subtotal, finalTotal, discountAmount, appliedCoupon, clearCart, formatPrice } = useCart();
+  const { 
+    items, 
+    subtotal, 
+    finalTotal, 
+    discountAmount, 
+    appliedCoupon, 
+    applyCoupon,
+    applyCouponCode, 
+    removeCoupon, 
+    availableCoupons,
+    clearCart, 
+    formatPrice 
+  } = useCart();
   const { user } = useAuth();
+  const [checkoutCouponCode, setCheckoutCouponCode] = useState('');
+  const [checkoutCouponMsg, setCheckoutCouponMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   const [customerName, setCustomerName] = useState(user?.displayName || '');
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
@@ -72,8 +88,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [copiedKeyIndex, setCopiedKeyIndex] = useState<number | null>(null);
   const [copiedUpiId, setCopiedUpiId] = useState(false);
   const [formError, setFormError] = useState('');
+  const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPaymentScreenshot(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Format Card Number (XXXX XXXX XXXX XXXX)
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,22 +118,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCardExpiry(raw);
   };
 
-  // Helper to generate realistic digital key or credentials for instant delivery
-  const generateDeliveryCredentials = (platform: string, type: string, title: string) => {
-    const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const randomHex2 = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const randomHex3 = Math.random().toString(36).substring(2, 6).toUpperCase();
-
-    if (platform === 'steam' && type === 'offline_account') {
-      return `STEAM ACCOUNT:\nLogin: steam_${title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}_${randomHex}\nPassword: Gamer@${randomHex2}#\nActivation: Switch to Steam Offline Mode after initial game launch\nStatus: Lifetime Verified`;
-    }
-    if (platform === 'ps5' || platform === 'ps4') {
-      return `${platform.toUpperCase()} CONSOLE ACCOUNT:\nPSN ID: play_${randomHex.toLowerCase()}@aaagames.store\nPassword: PSN#${randomHex2}!\nActivation: Settings -> Users -> Other -> Enable Console Sharing\nStatus: Primary Console Active`;
-    }
-    if (platform === 'epic') {
-      return `EPIC GAMES CREDENTIALS:\nEpic ID: epic_${randomHex.toLowerCase()}@aaagames.in\nPassword: Pass#${randomHex2}99\nDelivery: Instant Cloud Access`;
-    }
-    return `DIGITAL CD-KEY: 5${randomHex}-${randomHex2}-7${randomHex3}-AAA9`;
+  // Delivery credentials dispatched via official WhatsApp 9442964232
+  const generateDeliveryCredentials = (platform: string, _type: string, title: string) => {
+    return `Official ${platform.toUpperCase()} Delivery for ${title}:\nCredentials dispatched directly to your WhatsApp from +919442964232 once payment screenshot is verified.`;
   };
 
   const handleInitialPaySubmit = (e: React.FormEvent) => {
@@ -175,11 +189,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         totalAmount: finalTotal,
         originalAmount: subtotal,
         discountAmount,
-        appliedCoupon: appliedCoupon?.code,
+        appliedCoupon: appliedCoupon?.code || '',
         status: 'delivered',
         paymentMethod,
         paymentId: paymentTxnId,
-        utrNumber: customerUtr ? customerUtr.trim() : undefined,
+        utrNumber: customerUtr ? customerUtr.trim() : '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -267,14 +281,82 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <form onSubmit={handleInitialPaySubmit} className="space-y-4">
               
               {/* Order Summary Strip */}
-              <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs space-y-2">
+              <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs space-y-2.5">
                 <div className="flex justify-between text-zinc-400">
                   <span>Selected Titles:</span>
                   <span className="text-white font-medium">{items.length} Game(s)</span>
                 </div>
+                
+                {/* Coupon Code Section */}
+                <div className="pt-1 border-t border-zinc-800/80 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Have a Coupon Code? (e.g. SAKTHI20, AAAGAMES)"
+                      value={checkoutCouponCode}
+                      onChange={(e) => setCheckoutCouponCode(e.target.value.toUpperCase())}
+                      className="flex-1 px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs font-mono uppercase text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!checkoutCouponCode.trim()) return;
+                        const res = applyCouponCode(checkoutCouponCode);
+                        setCheckoutCouponMsg({ text: res.message, isError: !res.success });
+                        if (res.success) setCheckoutCouponCode('');
+                        setTimeout(() => setCheckoutCouponMsg(null), 4000);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Apply
+                    </button>
+                  </div>
+
+                  {checkoutCouponMsg && (
+                    <p className={`text-[11px] font-semibold px-2 py-1 rounded-md ${checkoutCouponMsg.isError ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+                      {checkoutCouponMsg.text}
+                    </p>
+                  )}
+
+                  {!appliedCoupon && availableCoupons.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[10px] text-zinc-500">Suggested:</span>
+                      {availableCoupons.slice(0, 4).map((c) => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => {
+                            applyCoupon(c);
+                            setCheckoutCouponMsg({ text: `Coupon ${c.code} applied! (-${c.discountPercent}%)`, isError: false });
+                            setTimeout(() => setCheckoutCouponMsg(null), 3000);
+                          }}
+                          className="text-[10px] px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-emerald-400 font-mono font-bold cursor-pointer"
+                        >
+                          {c.code} (-{c.discountPercent}%)
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {appliedCoupon && (
+                    <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs">
+                      <span className="text-emerald-400 font-semibold">
+                        Applied: <strong>{appliedCoupon.code}</strong> (-{appliedCoupon.discountPercent}%)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={removeCoupon}
+                        className="text-zinc-400 hover:text-rose-400 text-[11px] underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {appliedCoupon && (
-                  <div className="flex justify-between text-emerald-400 font-semibold">
-                    <span>Coupon Discount ({appliedCoupon.code}):</span>
+                  <div className="flex justify-between text-emerald-400 font-semibold pt-1">
+                    <span>Coupon Discount:</span>
                     <span>-{formatPrice(discountAmount)}</span>
                   </div>
                 )}
@@ -333,7 +415,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     required
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="name@example.com"
+                    placeholder="yourname@gmail.com"
                     className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-700 rounded-xl text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -454,19 +536,68 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="pt-1">
-                      <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                        Enter 12-Digit UPI Transaction UTR / Ref Number:
-                      </label>
+                    <div className="pt-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-semibold text-zinc-300">
+                          12-Digit UPI Transaction UTR / Ref Number:
+                        </label>
+                        {customerUtr.replace(/\s/g, '').length === 12 && (
+                          <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            UTR Validated
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={customerUtr}
-                        onChange={(e) => setCustomerUtr(e.target.value)}
+                        onChange={(e) => setCustomerUtr(e.target.value.replace(/[^0-9a-zA-Z]/g, ''))}
                         placeholder="e.g. 431289562145 (shown in GPay / PhonePe payment receipt)"
+                        maxLength={18}
                         className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700/80 rounded-xl text-xs sm:text-sm text-emerald-400 font-mono font-bold placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
                       />
-                      <p className="text-[11px] text-zinc-400 mt-1">
-                        Instant key delivery activates once submitted. You can also send screenshot to WhatsApp ({storeSettings?.whatsappNumber || '+91 94429 64232'}).
+
+                      {/* Payment Screenshot Uploader */}
+                      <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <ImageIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-semibold text-zinc-200">
+                              {paymentScreenshot ? 'Payment Receipt Attached' : 'Attach Payment Screenshot (Optional)'}
+                            </p>
+                            <p className="text-[10px] text-zinc-400">
+                              Speeds up automated key issuance
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-200 border border-zinc-700 transition-colors flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{paymentScreenshot ? 'Change' : 'Upload'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleScreenshotChange}
+                          />
+                        </label>
+                      </div>
+
+                      {paymentScreenshot && (
+                        <div className="relative w-24 h-16 rounded-lg overflow-hidden border border-emerald-500/40">
+                          <img src={paymentScreenshot} alt="Payment receipt" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setPaymentScreenshot(null)}
+                            className="absolute top-1 right-1 p-0.5 rounded-full bg-black/80 text-white text-[10px]"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      <p className="text-[11px] text-zinc-400">
+                        Instant key delivery activates once submitted. You can also send screenshot directly to WhatsApp ({storeSettings?.whatsappNumber || '+91 94429 64232'}).
                       </p>
                     </div>
                   </div>
@@ -639,84 +770,116 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           )}
 
-          {/* 3. Order Success & Instant Digital Credentials View */}
+          {/* 3. Order Placed & Send Payment Proof on WhatsApp */}
           {orderComplete && (
             <div className="space-y-5">
               <div className="text-center space-y-2 py-2">
-                <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/40 shadow-lg shadow-emerald-500/20">
-                  <CheckCircle2 className="w-8 h-8" />
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/40 shadow-xl shadow-emerald-500/20">
+                  <MessageCircle className="w-9 h-9 fill-emerald-500/30" />
                 </div>
-                <h4 className="text-xl font-black text-white">Payment Verified &amp; Games Delivered!</h4>
+                <h4 className="text-xl font-black text-white">Order Received &amp; Logged!</h4>
                 <p className="text-xs text-zinc-400">
-                  Order ID: <span className="font-mono text-emerald-400 font-bold">{completedOrderId}</span>
+                  Official Invoice ID: <span className="font-mono text-emerald-400 font-bold">{completedOrderId}</span>
                 </p>
-                <p className="text-xs text-emerald-400 font-semibold">
-                  A copy of your activation credentials has also been sent to your WhatsApp ({customerPhone})
-                </p>
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 leading-relaxed max-w-md mx-auto">
+                  <p className="font-semibold">
+                    🔒 No passwords are displayed on web pages for your security.
+                  </p>
+                  <p className="mt-1 text-[11px] text-zinc-300">
+                    Send your payment screenshot or UTR to our official WhatsApp (<strong className="text-white">+91 9442964232</strong>). Our admin verifies proof in 5 minutes and delivers your genuine game credentials directly in your chat.
+                  </p>
+                </div>
               </div>
 
-              {/* Delivered Digital Credentials Box */}
-              <div className="space-y-3">
-                <h5 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-emerald-400" />
-                  Your Instant Digital Activation Vault:
-                </h5>
+              {/* Order Invoice Summary Card */}
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
+                  <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Order Summary</span>
+                  <span className="text-xs font-black text-emerald-400">{formatPrice(finalTotal)}</span>
+                </div>
 
-                {generatedItems.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-xl bg-zinc-950 border border-emerald-500/40 space-y-2.5 shadow-md"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-sm text-white">{item.title}</span>
-                      <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {item.platform.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className="p-3 bg-zinc-900 rounded-lg border border-zinc-800 font-mono text-xs text-emerald-300 whitespace-pre-wrap relative group">
-                      {item.digitalKeyOrAccount}
-                      
-                      <button
-                        onClick={() => copyToClipboard(item.digitalKeyOrAccount || '', idx)}
-                        className="absolute top-2 right-2 p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Copy Credentials"
-                      >
-                        {copiedKeyIndex === idx ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                        <span>{copiedKeyIndex === idx ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
+                <div className="space-y-1.5 text-xs text-zinc-300">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Customer Name:</span>
+                    <span className="font-semibold text-white">{customerName || 'Valued Gamer'}</span>
                   </div>
-                ))}
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">WhatsApp Mobile:</span>
+                    <span className="font-mono font-semibold text-white">+91 {customerPhone}</span>
+                  </div>
+                  {customerUtr && (
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">UTR / Ref Number:</span>
+                      <span className="font-mono font-bold text-emerald-400">{customerUtr}</span>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-zinc-800">
+                    <span className="text-zinc-400 font-semibold block mb-1">Purchased Titles:</span>
+                    <ul className="space-y-1">
+                      {generatedItems.map((item, idx) => (
+                        <li key={idx} className="flex items-center justify-between text-xs font-medium text-white">
+                          <span>• {item.title}</span>
+                          <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                            {item.platform}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-2 pt-2">
-                <a
-                  href={`https://wa.me/${adminWhatsAppClean}?text=${encodeURIComponent(
-                    `Hello AAA GAMES Support! I just completed order ${completedOrderId} for ₹${finalTotal}. Please verify my credentials.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-md shadow-emerald-600/30"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Open WhatsApp Support (+91 94429 64232)</span>
-                </a>
+              {/* ACTION: Send to WhatsApp (+91 9442964232) */}
+              <div className="space-y-2.5 pt-1">
+                {(() => {
+                  const proofMsg = `🎮 *AAA GAMES - ORDER PAYMENT PROOF* 🎮\n\n*Order ID:* ${completedOrderId}\n*Customer Name:* ${customerName.trim() || 'Gamer'}\n*WhatsApp Mobile:* +91 ${customerPhone.trim()}\n*Total Amount:* ₹${finalTotal}\n*Payment Method:* ${paymentMethod.toUpperCase()}\n*UTR / Transaction Ref:* ${customerUtr ? customerUtr.trim() : 'Paid Online'}\n\n*Games Ordered:*\n${generatedItems.map((i) => `• ${i.title} (${i.platform.toUpperCase()})`).join('\n')}\n\nI have sent my payment proof screenshot in this chat. Please verify and send my game login credentials to this WhatsApp number!`;
+
+                  return (
+                    <>
+                      <a
+                        href={`https://wa.me/919442964232?text=${encodeURIComponent(proofMsg)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-zinc-950 font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-emerald-500/30 transition-all active:scale-95 animate-pulse"
+                      >
+                        <MessageCircle className="w-5 h-5 fill-current" />
+                        <span>Send Payment Proof to WhatsApp (+91 9442964232)</span>
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(proofMsg);
+                          setCopiedKeyIndex(999);
+                          setTimeout(() => setCopiedKeyIndex(null), 2500);
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-300 font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      >
+                        {copiedKeyIndex === 999 ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-400">Order Message Copied! Paste on WhatsApp</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Order Message Details</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  );
+                })()}
 
                 <button
                   onClick={() => {
                     onClose();
                     onOpenOrders();
                   }}
-                  className="w-full py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-2.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <span>Go to My Games &amp; Digital Vault</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>View All My Orders</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

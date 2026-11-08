@@ -14,6 +14,7 @@ export interface Game {
   description: string;
   coverImage: string;
   bannerImage?: string;
+  steamAppId?: number;
   edition: string;
   deliveryType: string;
   activationGuide: string;

@@ -104,7 +104,7 @@ export const Newsletter: React.FC = () => {
             {status === 'success' && (
               <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                <span>{feedbackMsg} Use code <strong>CHEAPGAMER</strong> for 10% OFF!</span>
+                <span>{feedbackMsg} Use code <strong>AAAGAMES</strong> for 10% OFF!</span>
               </div>
             )}
 

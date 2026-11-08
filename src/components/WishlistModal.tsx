@@ -75,6 +75,12 @@ export const WishlistModal: React.FC<WishlistModalProps> = ({
                     src={game.coverImage}
                     alt={game.title}
                     className="w-14 h-18 rounded-xl object-cover flex-shrink-0"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (game.steamAppId) {
+                        target.src = `https://shared.steamstatic.com/store_item_assets/steam/apps/${game.steamAppId}/header.jpg`;
+                      }
+                    }}
                   />
                   <div className="min-w-0">
                     <span className="text-[10px] uppercase font-bold text-emerald-400">

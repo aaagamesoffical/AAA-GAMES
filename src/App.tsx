@@ -28,6 +28,7 @@ import { WishlistModal } from './components/WishlistModal';
 import { AuthModal } from './components/AuthModal';
 import { AdminPanel } from './components/AdminPanel';
 import { WhatsAppSupport } from './components/WhatsAppSupport';
+import { AIAssistantWidget } from './components/AIAssistantWidget';
 import { CustomerReviews } from './components/CustomerReviews';
 import { FAQSection } from './components/FAQSection';
 import { Footer } from './components/Footer';
@@ -36,6 +37,7 @@ import { subscribeToGames, subscribeToStoreSettings, DEFAULT_STORE_SETTINGS } fr
 import { INITIAL_GAMES } from './data/initialGames';
 
 function MainStore() {
+  const { isAdmin } = useAuth();
   const [games, setGames] = useState<Game[]>(INITIAL_GAMES);
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
@@ -162,7 +164,11 @@ function MainStore() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenAdmin={() => setIsAdminPanelOpen(true)}
+        onOpenAdmin={() => {
+          if (isAdmin) {
+            setIsAdminPanelOpen(true);
+          }
+        }}
         onOpenOrders={() => setIsOrdersModalOpen(true)}
         onOpenWishlist={() => setIsWishlistModalOpen(true)}
         storeName={storeSettings.storeName}
@@ -356,10 +362,14 @@ function MainStore() {
           scrollToCatalog();
         }}
         onOpenOrders={() => setIsOrdersModalOpen(true)}
-        onOpenAdmin={() => setIsAdminPanelOpen(true)}
+        onOpenAdminPanel={() => setIsAdminPanelOpen(true)}
+        isAdmin={isAdmin}
         whatsappNumber={storeSettings.whatsappNumber}
         storeName={storeSettings.storeName}
       />
+
+      {/* Free AI Gaming Assistant Widget */}
+      <AIAssistantWidget />
 
       {/* WhatsApp Floating Button */}
       <WhatsAppSupport 
@@ -408,7 +418,7 @@ function MainStore() {
         storeName={storeSettings.storeName}
       />
 
-      {/* Admin Panel Modal */}
+      {/* Admin Panel Modal (Strictly for sakthianalanoffical@gmail.com) */}
       <AdminPanel
         isOpen={isAdminPanelOpen}
         onClose={() => setIsAdminPanelOpen(false)}

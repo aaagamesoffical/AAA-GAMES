@@ -8,14 +8,14 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   onAuthStateChanged,
-  User as FirebaseUser 
+  type User as FirebaseUser 
 } from 'firebase/auth';
 import { 
   getFirestore, 
   doc, 
   getDocFromServer 
 } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -26,14 +26,16 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
 // Error handling types and function per Firebase Skill
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
+export const OperationType = {
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete',
+  LIST: 'list',
+  GET: 'get',
+  WRITE: 'write',
+} as const;
+
+export type OperationType = typeof OperationType[keyof typeof OperationType];
 
 export interface FirestoreErrorInfo {
   error: string;

@@ -27,36 +27,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onCheckout }) => {
     subtotal, 
     formatPrice, 
     appliedCoupon, 
-    applyCoupon, 
+    applyCoupon,
+    applyCouponCode,
+    availableCoupons, 
     removeCoupon, 
     discountAmount, 
     finalTotal 
   } = useCart();
 
   const [couponCodeInput, setCouponCodeInput] = useState('');
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-
-  useEffect(() => {
-    const unsub = subscribeToCoupons((loadedCoupons) => {
-      setCoupons(loadedCoupons.filter((c) => c.isActive));
-    });
-    return () => unsub();
-  }, []);
+  const [couponStatus, setCouponStatus] = useState<{ text: string; isError: boolean } | null>(null);
 
   if (!isCartOpen) return null;
 
   const handleApplyInputCoupon = (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponCodeInput.trim()) return;
-    const match = coupons.find(
-      (c) => c.code.toUpperCase() === couponCodeInput.trim().toUpperCase()
-    );
-    if (!match) {
-      alert(`Invalid or expired coupon code: ${couponCodeInput}`);
-      return;
+    const result = applyCouponCode(couponCodeInput);
+    setCouponStatus({ text: result.message, isError: !result.success });
+    if (result.success) {
+      setCouponCodeInput('');
     }
-    applyCoupon(match);
-    setCouponCodeInput('');
+    setTimeout(() => {
+      setCouponStatus(null);
+    }, 4000);
   };
 
   return (
@@ -118,6 +112,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onCheckout }) => {
                     src={game.coverImage}
                     alt={game.title}
                     className="w-16 h-20 rounded-xl object-cover flex-shrink-0"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (game.steamAppId) {
+                        target.src = `https://shared.steamstatic.com/store_item_assets/steam/apps/${game.steamAppId}/header.jpg`;
+                      }
+                    }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
@@ -184,18 +184,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onCheckout }) => {
                   </button>
                 </form>
 
+                {couponStatus && (
+                  <p className={`text-[11px] font-semibold px-2 py-1 rounded-lg ${couponStatus.isError ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'}`}>
+                    {couponStatus.text}
+                  </p>
+                )}
+
                 {/* Available Quick Coupons */}
-                {coupons.length > 0 && !appliedCoupon && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
+                {availableCoupons.length > 0 && !appliedCoupon && (
+                  <div className="flex flex-wrap gap-1.5 pt-1 items-center">
                     <span className="text-[11px] text-zinc-400 flex items-center gap-1">
                       <Percent className="w-3 h-3 text-emerald-400" />
                       Coupons:
                     </span>
-                    {coupons.slice(0, 3).map((c) => (
+                    {availableCoupons.slice(0, 4).map((c) => (
                       <button
                         key={c.code}
+                        type="button"
                         onClick={() => applyCoupon(c)}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-mono font-bold hover:bg-emerald-500/25 transition-colors"
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-mono font-bold hover:bg-emerald-500/25 transition-colors cursor-pointer"
                       >
                         {c.code} ({c.discountPercent}% OFF)
                       </button>

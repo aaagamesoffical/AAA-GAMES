@@ -5,14 +5,13 @@ import {
   ShoppingCart, 
   Heart, 
   User, 
-  ShieldAlert, 
   LogOut, 
   Package, 
   Menu, 
-  X,
-  Flame,
-  CheckCircle2,
-  Sparkles
+  X, 
+  Flame, 
+  CheckCircle2, 
+  Sparkles 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -41,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenWishlist,
   storeName = 'AAA GAMES',
 }) => {
-  const { user, isAdmin, logout, isAdminBypassActive, toggleAdminBypass } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const { totalItemsCount, setIsCartOpen, currency, setCurrency, wishlist } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);

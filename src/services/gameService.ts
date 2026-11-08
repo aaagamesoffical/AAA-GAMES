@@ -22,10 +22,30 @@ const REVIEWS_COLLECTION = 'reviews';
 const SETTINGS_COLLECTION = 'settings';
 const NEWSLETTER_COLLECTION = 'newsletter';
 
+// Recursively strips any keys with 'undefined' values so Firestore setDoc/updateDoc never fails
+export function sanitizeFirestoreData<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return null as any;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeFirestoreData(item)) as any;
+  }
+  if (typeof data === 'object') {
+    const clean: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        clean[key] = sanitizeFirestoreData(value);
+      }
+    }
+    return clean as any;
+  }
+  return data;
+}
+
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   storeName: 'AAA GAMES',
   storeTagline: 'Premier Digital Gaming Store • Steam, Epic, PS4 & PS5',
-  announcementText: '🔥 MEGA SALE: Use coupon CHEAPGAMER for 10% instant discount! Instant WhatsApp Delivery to +91 94429 64232',
+  announcementText: '🔥 MEGA SALE: Use coupon AAAGAMES for 10% instant discount! Instant WhatsApp Delivery to +91 94429 64232',
   upiId: '9442964232@upi',
   upiPayeeName: 'AAA GAMES',
   upiQrImage: '/assets/aistudio/WhatsApp_Image_2026-11-02_at_8.42.24_PM_08b9aa99.jpeg',
@@ -92,16 +112,16 @@ export async function saveGame(game: Partial<Game> & { id: string }): Promise<vo
     const now = new Date().toISOString();
     
     if (existing.exists()) {
-      await updateDoc(gameRef, {
+      await updateDoc(gameRef, sanitizeFirestoreData({
         ...game,
         updatedAt: now
-      });
+      }));
     } else {
-      await setDoc(gameRef, {
+      await setDoc(gameRef, sanitizeFirestoreData({
         ...game,
         createdAt: now,
         updatedAt: now
-      });
+      }));
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `${GAMES_COLLECTION}/${game.id}`);
@@ -166,12 +186,15 @@ export async function createOrder(order: Omit<Order, 'id'>): Promise<string> {
   const orderId = 'ORD-' + Math.random().toString(36).substring(2, 9).toUpperCase();
   try {
     const orderRef = doc(db, ORDERS_COLLECTION, orderId);
-    await setDoc(orderRef, {
+    const sanitizedOrder = sanitizeFirestoreData({
       ...order,
       id: orderId,
+      appliedCoupon: order.appliedCoupon || null,
+      utrNumber: order.utrNumber || null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
+    await setDoc(orderRef, sanitizedOrder);
     return orderId;
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, `${ORDERS_COLLECTION}/${orderId}`);
@@ -256,11 +279,11 @@ export async function addReview(review: Omit<Review, 'id' | 'createdAt'>): Promi
   const reviewId = 'rev-' + Math.random().toString(36).substring(2, 9);
   try {
     const reviewRef = doc(db, REVIEWS_COLLECTION, reviewId);
-    await setDoc(reviewRef, {
+    await setDoc(reviewRef, sanitizeFirestoreData({
       ...review,
       id: reviewId,
       createdAt: new Date().toISOString()
-    });
+    }));
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, `${REVIEWS_COLLECTION}/${reviewId}`);
   }
@@ -312,10 +335,10 @@ export function subscribeToStoreSettings(callback: (settings: StoreSettings) => 
 export async function saveStoreSettings(settings: StoreSettings): Promise<void> {
   try {
     const settingsRef = doc(db, SETTINGS_COLLECTION, 'store_config');
-    await setDoc(settingsRef, {
+    await setDoc(settingsRef, sanitizeFirestoreData({
       ...settings,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    }), { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `${SETTINGS_COLLECTION}/store_config`);
   }
