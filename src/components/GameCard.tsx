@@ -1,6 +1,6 @@
-import React from 'react';
-import { Heart, ShoppingCart, Star, ShieldCheck, Flame, Zap, Eye } from 'lucide-react';
-import { Game } from '../types/game';
+import React, { useState } from 'react';
+import { Heart, ShoppingCart, Star, ShieldCheck, Flame, Zap, Eye, Check } from 'lucide-react';
+import { Game, GameEditionCategory, getGameTierPrice, GAME_CATEGORIES } from '../types/game';
 import { useCart } from '../context/CartContext';
 
 interface GameCardProps {
@@ -10,6 +10,7 @@ interface GameCardProps {
 
 export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
   const { addToCart, isInWishlist, toggleWishlist, formatPrice } = useCart();
+  const [selectedCategory, setSelectedCategory] = useState<GameEditionCategory>('offline_sharing');
   const inWishlist = isInWishlist(game.id);
 
   const getPlatformBadge = (platform: Game['platform']) => {
@@ -41,18 +42,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
     }
   };
 
-  const getProductTypeLabel = (type: Game['type']) => {
-    switch (type) {
-      case 'offline_account':
-        return 'Offline Activation';
-      case 'cd_key':
-        return 'Digital CD-Key';
-      case 'full_account':
-        return 'Console Primary ID';
-    }
-  };
-
   const badge = getPlatformBadge(game.platform);
+  const activePrice = getGameTierPrice(game, selectedCategory);
 
   return (
     <div className="group relative bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800/90 hover:border-emerald-500/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 flex flex-col justify-between">
@@ -110,8 +101,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
 
         {/* Bottom overlay in image */}
         <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-xs">
-          <span className="text-[11px] font-bold text-zinc-300 bg-black/60 px-2 py-0.5 rounded-md backdrop-blur-sm">
-            {getProductTypeLabel(game.type)}
+          <span className="text-[10px] font-bold text-zinc-300 bg-black/70 px-2 py-0.5 rounded-md backdrop-blur-sm border border-white/10">
+            {GAME_CATEGORIES.find((c) => c.id === selectedCategory)?.shortLabel}
           </span>
           <span className="bg-emerald-500 text-zinc-950 font-black px-2 py-0.5 rounded-md text-xs shadow-md">
             -{game.discountPercent}%
@@ -120,7 +111,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
       </div>
 
       {/* Content Body */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         <div onClick={() => onSelectGame(game)} className="cursor-pointer">
           <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-1">
             <span className="truncate">{game.genre}</span>
@@ -141,28 +132,61 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
           </p>
         </div>
 
+        {/* 4 Category Edition Selector Pills */}
+        <div className="pt-2 border-t border-zinc-800/80">
+          <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+            <span>Edition Tier:</span>
+            <span className="text-emerald-400 font-mono text-[9px]">4 Tiers Available</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1 text-[10px] font-semibold">
+            {GAME_CATEGORIES.map((cat) => {
+              const tierPrice = getGameTierPrice(game, cat.id);
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCategory(cat.id);
+                  }}
+                  className={`px-2 py-1.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    isSelected
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-sm'
+                      : 'bg-zinc-950/70 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                  }`}
+                  title={`${cat.label} - ₹${tierPrice}`}
+                >
+                  <span className="truncate">{cat.shortLabel}</span>
+                  <span className="font-mono text-[10px] text-white font-bold ml-1">₹{tierPrice}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Price & Actions */}
-        <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-2">
+        <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2">
           <div>
-            <div className="text-[11px] text-zinc-500 line-through">
+            <div className="text-[10px] text-zinc-500 line-through">
               {formatPrice(game.originalPrice)}
             </div>
-            <div className="text-lg font-black text-emerald-400 tracking-tight leading-none">
-              {formatPrice(game.price)}
+            <div className="text-lg font-black text-emerald-400 tracking-tight leading-none font-mono">
+              {formatPrice(activePrice)}
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => onSelectGame(game)}
-              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
               title="View Game Details & Activation Steps"
             >
               <Eye className="w-4 h-4" />
             </button>
             <button
-              onClick={() => addToCart(game)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+              onClick={() => addToCart(game, selectedCategory)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
             >
               <ShoppingCart className="w-3.5 h-3.5" />
               <span>Buy</span>

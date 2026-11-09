@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { subscribeToCoupons } from '../services/gameService';
-import { Coupon } from '../types/game';
+import { Coupon, GAME_CATEGORIES, GameEditionCategory } from '../types/game';
 
 interface CartDrawerProps {
   onCheckout: () => void;
@@ -32,7 +32,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onCheckout }) => {
     availableCoupons, 
     removeCoupon, 
     discountAmount, 
-    finalTotal 
+    finalTotal,
+    updateItemCategory
   } = useCart();
 
   const [couponCodeInput, setCouponCodeInput] = useState('');
@@ -103,59 +104,76 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onCheckout }) => {
                 </button>
               </div>
             ) : (
-              items.map(({ game }) => (
-                <div
-                  key={game.id}
-                  className="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800/80 flex items-center gap-3 relative group"
-                >
-                  <img
-                    src={game.coverImage}
-                    alt={game.title}
-                    className="w-16 h-20 rounded-xl object-cover flex-shrink-0"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      if (game.steamAppId) {
-                        target.src = `https://shared.steamstatic.com/store_item_assets/steam/apps/${game.steamAppId}/header.jpg`;
-                      }
-                    }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {game.platform.toUpperCase()}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 truncate">
-                        {game.edition}
-                      </span>
-                    </div>
+              items.map(({ game, selectedCategory, categoryPrice }) => {
+                const currentCategory = selectedCategory || 'offline_sharing';
+                const itemPrice = categoryPrice || game.price;
+                const catMeta = GAME_CATEGORIES.find((c) => c.id === currentCategory);
 
-                    <h4 className="text-xs sm:text-sm font-bold text-white truncate">
-                      {game.title}
-                    </h4>
-
-                    <p className="text-[11px] text-zinc-400 truncate mt-0.5">
-                      {game.deliveryType}
-                    </p>
-
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-zinc-500 line-through">
-                        {formatPrice(game.originalPrice)}
-                      </span>
-                      <span className="text-sm font-black text-emerald-400">
-                        {formatPrice(game.price)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => removeFromCart(game.id)}
-                    className="p-2 rounded-xl bg-zinc-800/80 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"
-                    title="Remove from Cart"
+                return (
+                  <div
+                    key={game.id}
+                    className="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800/80 flex items-center gap-3 relative group"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
+                    <img
+                      src={game.coverImage}
+                      alt={game.title}
+                      className="w-16 h-20 rounded-xl object-cover flex-shrink-0"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (game.steamAppId) {
+                          target.src = `https://shared.steamstatic.com/store_item_assets/steam/apps/${game.steamAppId}/header.jpg`;
+                        }
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {game.platform.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-zinc-400 truncate">
+                          {game.edition}
+                        </span>
+                      </div>
+
+                      <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                        {game.title}
+                      </h4>
+
+                      {/* Category Switcher Pill */}
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <select
+                          value={currentCategory}
+                          onChange={(e) => updateItemCategory(game.id, e.target.value as GameEditionCategory)}
+                          className="text-[10px] font-bold bg-zinc-950 border border-emerald-500/40 text-emerald-300 rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
+                        >
+                          {GAME_CATEGORIES.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xs text-zinc-500 line-through">
+                          {formatPrice(game.originalPrice)}
+                        </span>
+                        <span className="text-sm font-black text-emerald-400">
+                          {formatPrice(itemPrice)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => removeFromCart(game.id)}
+                      className="p-2 rounded-xl bg-zinc-800/80 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"
+                      title="Remove from Cart"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
 

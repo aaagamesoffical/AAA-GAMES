@@ -316,6 +316,30 @@ export async function deleteReview(reviewId: string): Promise<void> {
   }
 }
 
+// Update Review (Admin)
+export async function updateReview(reviewId: string, updates: Partial<Review>): Promise<void> {
+  try {
+    const reviewRef = doc(db, REVIEWS_COLLECTION, reviewId);
+    await updateDoc(reviewRef, sanitizeFirestoreData({
+      ...updates,
+      updatedAt: new Date().toISOString()
+    }));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${REVIEWS_COLLECTION}/${reviewId}`);
+  }
+}
+
+// Clear All Reviews (Admin Purge)
+export async function clearAllReviews(): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, REVIEWS_COLLECTION));
+    const deletePromises = snap.docs.map((d) => deleteDoc(d.ref));
+    await Promise.all(deletePromises);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, REVIEWS_COLLECTION);
+  }
+}
+
 // Subscribe to Store Settings (UPI Scanner, WhatsApp Number)
 export function subscribeToStoreSettings(callback: (settings: StoreSettings) => void): () => void {
   const settingsRef = doc(db, SETTINGS_COLLECTION, 'store_config');

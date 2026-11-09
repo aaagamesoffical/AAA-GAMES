@@ -69,6 +69,99 @@ export const AIAssistantWidget: React.FC = () => {
     ]);
   };
 
+  const getClientAIResponse = (raw: string): string => {
+    const q = raw.toLowerCase();
+
+    // 1. 4 Categories explanation
+    if (q.includes('category') || q.includes('edition') || q.includes('sharing') || q.includes('private')) {
+      return `🎮 **Our 4 Game Edition Categories Explained:**\n\n` +
+        `1. **Offline Sharing:** Budget-friendly shared account for complete single-player story/campaign offline. Instant delivery!\n` +
+        `2. **Offline Private:** 100% exclusive private account with cloud save backup and lifetime warranty.\n` +
+        `3. **Online Sharing:** Shared access with online multiplayer & co-op mode enabled.\n` +
+        `4. **Online Private:** 100% your private genuine digital key/account with full online multiplayer, friends list & cloud syncing!\n\n` +
+        `💡 You can switch edition categories directly on any game card or modal to see live pricing!`;
+    }
+
+    // 2. Coupons & Discounts
+    if (q.includes('coupon') || q.includes('code') || q.includes('discount') || q.includes('offer') || q.includes('promo')) {
+      return `🎟️ **AAA GAMES Active Discount Coupons:**\n\n` +
+        `• **SAKTHI20** — 20% Instant Discount storewide!\n` +
+        `• **AAAGAMES** — 15% Storewide Discount\n` +
+        `• **CHEAPGAMER** — 10% Extra OFF\n` +
+        `• **STEAM50** — 15% OFF all Steam titles\n` +
+        `• **WELCOME5** — 10% Welcome Bonus\n\n` +
+        `💡 Enter the coupon in your Cart Drawer or Checkout screen and tap **Apply**!`;
+    }
+
+    // 3. WhatsApp & Support
+    if (q.includes('whatsapp') || q.includes('contact') || q.includes('support') || q.includes('phone') || q.includes('admin') || q.includes('sakthi')) {
+      return `📱 **Direct Store Owner WhatsApp Support:**\n\n` +
+        `• **WhatsApp Number:** **+91 9442964232**\n` +
+        `• **Store Owner:** Sakthi\n` +
+        `• **Delivery Speed:** Within 2 to 5 minutes of sending your payment screenshot / UTR!\n` +
+        `• **Warranty:** 100% Lifetime Guarantee on all accounts and digital keys.`;
+    }
+
+    // 4. Payment / UPI / QR / UTR
+    if (q.includes('pay') || q.includes('upi') || q.includes('qr') || q.includes('gpay') || q.includes('phonepe') || q.includes('paytm') || q.includes('utr')) {
+      return `💳 **How to Pay with Real UPI / QR:**\n\n` +
+        `1. Scan our live UPI QR Code on the checkout screen (or send to VPA: **9442964232@upi**).\n` +
+        `2. Pay exact order amount via Google Pay, PhonePe, Paytm, or BHIM.\n` +
+        `3. Copy the 12-digit UTR / UPI Ref Number from your receipt and paste it into the checkout form.\n` +
+        `4. Tap "Send Payment Proof to WhatsApp" to connect directly with +91 9442964232 for immediate activation!`;
+    }
+
+    // 5. Black Myth Wukong
+    if (q.includes('wukong') || q.includes('black myth')) {
+      return `🐒 **Black Myth: Wukong (Steam PC):**\n\n` +
+        `• **Store Price:** Starts at ₹499 (Original Steam Price: ₹3,999 — 87% OFF!)\n` +
+        `• **Content:** Full Game Chapters 1–6 with Destined One storyline + high-speed Steam download.\n` +
+        `• **System:** GTX 1060 / RTX 2060 / RTX 3060 / 4060 with 16GB RAM and SSD.\n` +
+        `• **Delivery:** Instant Steam credentials dispatched to WhatsApp (+91 9442964232)!`;
+    }
+
+    // 6. GTA V
+    if (q.includes('gta') || q.includes('grand theft auto')) {
+      return `🚗 **Grand Theft Auto V Premium Edition (Steam PC):**\n\n` +
+        `• **Store Price:** Starts at ₹299 (Original: ₹2,499 — 88% OFF!)\n` +
+        `• **Content:** Full Story Mode with Michael, Trevor, Franklin + 4K 60+ FPS support.\n` +
+        `• **System:** Intel i5 / 8GB RAM / GTX 660 or better (Runs on most modern laptops).\n` +
+        `• **Delivery:** Instant credentials on WhatsApp!`;
+    }
+
+    // 7. Baldur's Gate 3
+    if (q.includes('baldur') || q.includes('bg3')) {
+      return `🎲 **Baldur's Gate 3 (GOTY Edition):**\n\n` +
+        `• **Store Price:** ₹599 (Original: ₹3,499 — 83% OFF!)\n` +
+        `• **Award:** The Game Awards GOTY 2023 RPG Masterpiece with 100+ hours of tactical D&D combat.\n` +
+        `• **Delivery:** Instant Steam account with lifetime cloud save support!`;
+    }
+
+    // 8. Sekiro
+    if (q.includes('sekiro')) {
+      return `⚔️ **Sekiro: Shadows Die Twice - GOTY Edition:**\n\n` +
+        `• **Store Price:** ₹399 (Original: ₹3,999 — 90% OFF!)\n` +
+        `• **Highlights:** FromSoftware GOTY combat, deflection mechanics, prosthetic ninja tools.\n` +
+        `• **Delivery:** Instant Steam credentials on WhatsApp!`;
+    }
+
+    // 9. Hardware & Specs
+    if (q.includes('spec') || q.includes('can i run') || q.includes('hardware') || q.includes('fps') || q.includes('gpu') || q.includes('rtx') || q.includes('gtx')) {
+      return `🖥️ **PC Gaming Performance Guide:**\n\n` +
+        `• **GTX 1650 / RX 580:** GTA V (60+ FPS), Witcher 3 (60 FPS), Sekiro (60 FPS), Dark Souls III (60 FPS).\n` +
+        `• **RTX 3060 / 4060:** Cyberpunk 2077 DLSS (70+ FPS), Black Myth Wukong (60 FPS High), Baldur's Gate 3 (80+ FPS), God of War (75 FPS).\n` +
+        `• **Tip:** Test your exact GPU and CPU with our "Can My PC Run It?" benchmark tool right on the homepage!`;
+    }
+
+    // Default overview
+    return `⚡ **AAA GAMES Elite Gaming Concierge:**\n\n` +
+      `• **Top Titles:** Black Myth: Wukong (₹499), GTA V (₹299), Baldur's Gate 3 (₹599), Sekiro (₹399), Elden Ring (₹549).\n` +
+      `• **Coupons:** Use **SAKTHI20** for 20% OFF or **AAAGAMES** for 15% OFF!\n` +
+      `• **Payment:** Real QR scanner (GPay, PhonePe, Paytm) to VPA: **9442964232@upi**.\n` +
+      `• **WhatsApp:** Order proof verified within 5 minutes at **+91 9442964232**!\n\n` +
+      `Ask me about any game, activation guide, or system requirement!`;
+  };
+
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || input;
     if (!textToSend.trim() || loading) return;
@@ -101,21 +194,28 @@ export const AIAssistantWidget: React.FC = () => {
           conversationHistory: historyPayload
         })
       });
+
+      if (!res.ok) {
+        throw new Error(`Server returned status ${res.status}`);
+      }
+
       const data = await res.json();
 
       const aiMsg: ChatMessage = {
         id: 'ai_' + Date.now(),
         sender: 'ai',
-        text: data.reply || 'Check out our deals page for the best discounts today!',
+        text: data.reply || getClientAIResponse(textToSend),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         searchSources: Array.isArray(data.searchSources) && data.searchSources.length > 0 ? data.searchSources : undefined
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
+      // Intelligent gaming assistant client-side fallback
+      const intelligentText = getClientAIResponse(textToSend);
       const fallbackMsg: ChatMessage = {
         id: 'ai_fallback_' + Date.now(),
         sender: 'ai',
-        text: '🔥 Top Recommendations: Black Myth: Wukong (₹499) and GTA V Premium (₹299) are today\'s most popular Steam titles with instant WhatsApp key delivery (+91 9442964232)!',
+        text: intelligentText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages((prev) => [...prev, fallbackMsg]);

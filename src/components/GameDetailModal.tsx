@@ -15,9 +15,12 @@ import {
   Share2,
   Sparkles,
   Bot,
-  ExternalLink
+  ExternalLink,
+  Upload,
+  Image as ImageIcon,
+  Maximize2
 } from 'lucide-react';
-import { Game, Review } from '../types/game';
+import { Game, Review, GameEditionCategory, GAME_CATEGORIES, getGameTierPrice } from '../types/game';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { subscribeToGameReviews, addReview } from '../services/gameService';
@@ -31,10 +34,13 @@ interface GameDetailModalProps {
 export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose, onOpenAuth }) => {
   const { addToCart, isInWishlist, toggleWishlist, formatPrice, setIsCartOpen } = useCart();
   const { user } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState<GameEditionCategory>('offline_sharing');
   const [activeTab, setActiveTab] = useState<'details' | 'activation' | 'system' | 'reviews'>('details');
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState<string[]>([]);
+  const [previewModalImg, setPreviewModalImg] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -79,9 +85,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
   if (!game) return null;
 
   const inWishlist = isInWishlist(game.id);
+  const activeTierPrice = getGameTierPrice(game, selectedCategory);
 
   const handleBuyNow = () => {
-    addToCart(game);
+    addToCart(game, selectedCategory);
     setIsCartOpen(true);
     onClose();
   };
@@ -90,6 +97,21 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
     navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleReviewImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setReviewImages((prev) => [...prev, result]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -109,9 +131,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
         userName: user?.displayName || user?.email?.split('@')[0] || 'Verified Gamer',
         rating: newRating,
         comment: newComment.trim(),
+        images: reviewImages,
         verifiedPurchase: true,
       });
       setNewComment('');
+      setReviewImages([]);
       setActiveTab('reviews');
     } catch (err) {
       console.error('Failed to submit review:', err);
@@ -176,7 +200,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
                 {formatPrice(game.originalPrice)}
               </span>
               <span className="text-2xl sm:text-3xl font-black text-emerald-400">
-                {formatPrice(game.price)}
+                {formatPrice(activeTierPrice)}
               </span>
             </div>
           </div>
@@ -282,6 +306,61 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
                       </a>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* 4 Edition Categories Selector */}
+              <div className="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                      Choose Your Edition Category
+                    </h4>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Select how you want to play. Each edition has dedicated server/key licensing.
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-white bg-zinc-800 px-2.5 py-1 rounded-lg border border-zinc-700">
+                    Active: {formatPrice(activeTierPrice)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {GAME_CATEGORIES.map((cat) => {
+                    const price = getGameTierPrice(game, cat.id);
+                    const isSelected = selectedCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-emerald-500/15 border-emerald-500 shadow-md shadow-emerald-500/10'
+                            : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className={`text-xs font-black ${isSelected ? 'text-emerald-300' : 'text-white'}`}>
+                            {cat.name}
+                          </span>
+                          <span className={`text-xs font-mono font-black ${isSelected ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                            {formatPrice(price)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 leading-snug">
+                          {cat.description}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {cat.features.slice(0, 2).map((feat, idx) => (
+                            <span key={idx} className="text-[9px] px-1.5 py-0.2 rounded bg-zinc-800/80 text-zinc-300">
+                              ✓ {feat}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -467,11 +546,49 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
                       required
                     />
 
-                    <div className="flex justify-end">
+                    {/* Image Upload for Customer Proof */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] text-zinc-400 font-semibold flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Attach Screenshot Proof (WhatsApp chat, Game Library, Download):</span>
+                        </label>
+                        <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[11px] text-zinc-200 font-bold flex items-center gap-1 transition-colors">
+                          <Upload className="w-3 h-3 text-emerald-400" />
+                          <span>Upload Images</span>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleReviewImageUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {reviewImages.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {reviewImages.map((img, idx) => (
+                            <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-emerald-500/50 group">
+                              <img src={img} alt="Proof" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => setReviewImages(prev => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-1 right-1 p-0.5 rounded-full bg-black/80 hover:bg-rose-500 text-white text-[9px] w-4 h-4 flex items-center justify-center transition-colors"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end pt-1">
                       <button
                         type="submit"
                         disabled={submittingReview}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer shadow-md"
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>{submittingReview ? 'Submitting...' : 'Post Review'}</span>
@@ -484,7 +601,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
                     <button onClick={onOpenAuth} className="text-emerald-400 font-bold underline">
                       Login with Google or Email
                     </button>{' '}
-                    to leave a customer review.
+                    to leave a customer review with screenshot proof.
                   </div>
                 )}
               </div>
@@ -493,13 +610,18 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
               <div className="space-y-3">
                 {reviews.length > 0 ? (
                   reviews.map((r) => (
-                    <div key={r.id} className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800 text-xs">
-                      <div className="flex items-center justify-between mb-1.5">
+                    <div key={r.id} className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs space-y-2.5">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-white">{r.userName}</span>
                           <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 font-semibold">
                             <CheckCircle2 className="w-3 h-3" /> Verified Buyer
                           </span>
+                          {r.images && r.images.length > 0 && (
+                            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.2 rounded border border-cyan-500/20 font-semibold">
+                              📸 {r.images.length} Proof Photo{r.images.length > 1 ? 's' : ''}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center text-amber-400">
                           {Array.from({ length: r.rating }).map((_, i) => (
@@ -507,13 +629,40 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
                           ))}
                         </div>
                       </div>
-                      <p className="text-zinc-300 leading-relaxed">{r.comment}</p>
+
+                      <p className="text-zinc-200 leading-relaxed whitespace-pre-line">{r.comment}</p>
+
+                      {/* Review Proof Images Gallery */}
+                      {r.images && r.images.length > 0 && (
+                        <div className="pt-1.5">
+                          <p className="text-[10px] text-zinc-400 font-semibold mb-1.5 flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3 text-emerald-400" />
+                            Customer Screenshot Proof:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {r.images.map((imgUrl, imgIdx) => (
+                              <button
+                                key={imgIdx}
+                                type="button"
+                                onClick={() => setPreviewModalImg(imgUrl)}
+                                className="relative w-20 h-16 rounded-xl overflow-hidden border border-zinc-700 hover:border-emerald-500 transition-all cursor-pointer group"
+                              >
+                                <img src={imgUrl} alt={`Proof ${imgIdx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <Maximize2 className="w-4 h-4 text-white" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-zinc-500 italic">
-                    No reviews submitted yet for this title. Be the first to review!
-                  </p>
+                  <div className="p-6 text-center rounded-xl bg-zinc-950/40 border border-zinc-800 text-xs text-zinc-400">
+                    <p className="font-semibold text-zinc-300">No customer reviews yet for this title.</p>
+                    <p className="text-[11px] text-zinc-500 mt-1">Be the first gamer to post a review and upload your screenshot proof!</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -537,10 +686,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => {
-                addToCart(game);
+                addToCart(game, selectedCategory);
                 onClose();
               }}
-              className="flex items-center gap-2 px-4 sm:px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs sm:text-sm transition-colors"
+              className="flex items-center gap-2 px-4 sm:px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Add to Cart</span>
@@ -548,13 +697,45 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
 
             <button
               onClick={handleBuyNow}
-              className="flex items-center gap-2 px-5 sm:px-7 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-95"
+              className="flex items-center gap-2 px-5 sm:px-7 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-95 cursor-pointer"
             >
-              <span>Instant Buy ({formatPrice(game.price)})</span>
+              <span>Instant Buy ({formatPrice(activeTierPrice)})</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Proof Image Lightbox Modal */}
+      {previewModalImg && (
+        <div 
+          className="fixed inset-0 z-60 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setPreviewModalImg(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh] bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl p-2" onClick={(e) => e.stopPropagation()}>
+            <img src={previewModalImg} alt="Customer Proof Screenshot" className="max-w-full max-h-[82vh] object-contain rounded-xl" />
+            <div className="flex items-center justify-between p-3 border-t border-zinc-800 text-xs">
+              <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" />
+                Verified Order &amp; Delivery Screenshot Proof
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewModalImg(null)}
+                className="px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs transition-colors"
+              >
+                Close Preview
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewModalImg(null)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-black/80 hover:bg-black text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -53,6 +53,9 @@ import {
   subscribeToNewsletterSubscribers,
   subscribeToAllReviews,
   deleteReview,
+  addReview,
+  updateReview,
+  clearAllReviews,
   DEFAULT_STORE_SETTINGS
 } from '../services/gameService';
 import { useCart } from '../context/CartContext';
@@ -131,6 +134,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
 
   // Customer Reviews state
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [isEditingReviewModal, setIsEditingReviewModal] = useState(false);
+  const [reviewFormState, setReviewFormState] = useState<{
+    id?: string;
+    gameId: string;
+    gameTitle: string;
+    userName: string;
+    rating: number;
+    comment: string;
+    verifiedPurchase: boolean;
+    images: string[];
+  }>({
+    gameId: '',
+    gameTitle: '',
+    userName: '',
+    rating: 5,
+    comment: '',
+    verifiedPurchase: true,
+    images: []
+  });
+  const [reviewImageUrlInput, setReviewImageUrlInput] = useState('');
+  const [isSavingReview, setIsSavingReview] = useState(false);
+  const [previewAdminModalImg, setPreviewAdminModalImg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -281,6 +306,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
         ? Math.round(((editingGame.originalPrice - editingGame.price) / editingGame.originalPrice) * 100)
         : editingGame.discountPercent || 0;
 
+      const basePrice = Number(editingGame.tierPricing?.offlineSharing) || Number(editingGame.price) || 299;
+      const tierPricing = {
+        offlineSharing: basePrice,
+        offlinePrivate: Number(editingGame.tierPricing?.offlinePrivate) || Math.round(basePrice * 1.5),
+        onlineSharing: Number(editingGame.tierPricing?.onlineSharing) || Math.round(basePrice * 2.2),
+        onlinePrivate: Number(editingGame.tierPricing?.onlinePrivate) || Math.round(basePrice * 3.2),
+      };
+
       await saveGame({
         ...editingGame,
         id: gameId,
@@ -289,9 +322,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
         platform: editingGame.platform as Platform,
         type: (editingGame.type || 'offline_account') as ProductType,
         genre: editingGame.genre || 'Action',
-        price: Number(editingGame.price) || 299,
+        price: basePrice,
         originalPrice: Number(editingGame.originalPrice) || 2499,
         discountPercent: calculatedDiscount,
+        tierPricing,
         description: editingGame.description || 'Digital game with instant activation.',
         coverImage: editingGame.coverImage || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80',
         bannerImage: editingGame.bannerImage || editingGame.coverImage,
@@ -406,11 +440,133 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
     }
   };
 
+  const handleOpenAddReview = () => {
+    const defaultGame = games[0];
+    setReviewFormState({
+      gameId: defaultGame?.id || '',
+      gameTitle: defaultGame?.title || 'Grand Theft Auto V: Premium Edition',
+      userName: 'Verified Buyer (WhatsApp)',
+      rating: 5,
+      comment: 'Super fast delivery on WhatsApp (+91 9442964232). Switched to offline mode and game campaign works 100%!',
+      verifiedPurchase: true,
+      images: []
+    });
+    setReviewImageUrlInput('');
+    setIsEditingReviewModal(true);
+  };
+
+  const handleOpenEditReview = (rev: Review) => {
+    setReviewFormState({
+      id: rev.id,
+      gameId: rev.gameId,
+      gameTitle: rev.gameTitle || '',
+      userName: rev.userName,
+      rating: rev.rating,
+      comment: rev.comment,
+      verifiedPurchase: rev.verifiedPurchase ?? true,
+      images: rev.images || []
+    });
+    setReviewImageUrlInput('');
+    setIsEditingReviewModal(true);
+  };
+
+  const handleReviewScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setReviewFormState(prev => ({
+            ...prev,
+            images: [...prev.images, result]
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAddReviewImageUrl = () => {
+    if (!reviewImageUrlInput.trim()) return;
+    setReviewFormState(prev => ({
+      ...prev,
+      images: [...prev.images, reviewImageUrlInput.trim()]
+    }));
+    setReviewImageUrlInput('');
+  };
+
+  const handleRemoveReviewImage = (idxToRemove: number) => {
+    setReviewFormState(prev => ({
+      ...prev,
+      images: prev.images.filter((_, idx) => idx !== idxToRemove)
+    }));
+  };
+
+  const handleSaveReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewFormState.userName.trim() || !reviewFormState.comment.trim()) {
+      alert('Please fill in customer name and comment.');
+      return;
+    }
+
+    setIsSavingReview(true);
+    try {
+      const selectedGame = games.find(g => g.id === reviewFormState.gameId);
+      const title = selectedGame?.title || reviewFormState.gameTitle || 'Digital Game';
+
+      if (reviewFormState.id) {
+        // Edit existing review
+        await updateReview(reviewFormState.id, {
+          gameId: reviewFormState.gameId,
+          gameTitle: title,
+          userName: reviewFormState.userName.trim(),
+          rating: Number(reviewFormState.rating),
+          comment: reviewFormState.comment.trim(),
+          verifiedPurchase: reviewFormState.verifiedPurchase,
+          images: reviewFormState.images,
+        });
+        showNotification('Review updated successfully with proof images!');
+      } else {
+        // Create new proof review
+        await addReview({
+          gameId: reviewFormState.gameId,
+          gameTitle: title,
+          userId: 'owner_sakthi_' + Date.now(),
+          userName: reviewFormState.userName.trim(),
+          rating: Number(reviewFormState.rating),
+          comment: reviewFormState.comment.trim(),
+          verifiedPurchase: reviewFormState.verifiedPurchase,
+          images: reviewFormState.images,
+        });
+        showNotification('New customer proof review added live to store!');
+      }
+      setIsEditingReviewModal(false);
+    } catch (err: any) {
+      alert('Failed to save review: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsSavingReview(false);
+    }
+  };
+
+  const handleClearAllReviewsAction = async () => {
+    if (!confirm('⚠️ Are you sure you want to delete ALL customer reviews? This will remove all existing reviews so you can upload your genuine screenshot proofs. This cannot be undone.')) {
+      return;
+    }
+    try {
+      await clearAllReviews();
+      showNotification('All reviews cleared! You can now upload your customer proof screenshots.');
+    } catch (err: any) {
+      alert('Failed to clear reviews: ' + err.message);
+    }
+  };
+
   // Filter games
   const filteredGames = games.filter((g) =>
     g.title.toLowerCase().includes(gameSearch.toLowerCase()) ||
     g.platform.toLowerCase().includes(gameSearch.toLowerCase()) ||
-    g.genre.toLowerCase().includes(gameSearch.toLowerCase())
+    Boolean(g.genre?.toLowerCase().includes(gameSearch.toLowerCase()))
   );
 
   // Analytics calculations
@@ -823,6 +979,136 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                         />
                       </div>
 
+                      {/* 4-CATEGORY TIER PRICING CONTROLS */}
+                      <div className="col-span-full p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                              4 Category Pricing Tiers (₹)
+                            </h4>
+                          </div>
+                          <span className="text-[11px] text-zinc-400 font-mono">
+                            Edit individual price for each edition tier
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                          {/* 1. Offline Sharing */}
+                          <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                                ⚡ Offline Sharing
+                              </label>
+                              <span className="text-[9px] bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded font-mono">Tier 1</span>
+                            </div>
+                            <input
+                              type="number"
+                              value={editingGame.tierPricing?.offlineSharing ?? editingGame.price ?? 299}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEditingGame({
+                                  ...editingGame,
+                                  price: val,
+                                  tierPricing: {
+                                    offlineSharing: val,
+                                    offlinePrivate: editingGame.tierPricing?.offlinePrivate ?? Math.round(val * 1.5),
+                                    onlineSharing: editingGame.tierPricing?.onlineSharing ?? Math.round(val * 2.2),
+                                    onlinePrivate: editingGame.tierPricing?.onlinePrivate ?? Math.round(val * 3.2),
+                                  }
+                                });
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-700 rounded-lg text-xs font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
+                            />
+                            <span className="text-[10px] text-zinc-500 block">Shared Steam/Epic Offline</span>
+                          </div>
+
+                          {/* 2. Offline Private */}
+                          <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-cyan-400 flex items-center gap-1">
+                                🔒 Offline Private
+                              </label>
+                              <span className="text-[9px] bg-cyan-500/10 text-cyan-300 px-1.5 py-0.5 rounded font-mono">Tier 2</span>
+                            </div>
+                            <input
+                              type="number"
+                              value={editingGame.tierPricing?.offlinePrivate ?? Math.round((editingGame.price || 299) * 1.5)}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEditingGame({
+                                  ...editingGame,
+                                  tierPricing: {
+                                    offlineSharing: editingGame.tierPricing?.offlineSharing ?? editingGame.price ?? 299,
+                                    offlinePrivate: val,
+                                    onlineSharing: editingGame.tierPricing?.onlineSharing ?? Math.round((editingGame.price || 299) * 2.2),
+                                    onlinePrivate: editingGame.tierPricing?.onlinePrivate ?? Math.round((editingGame.price || 299) * 3.2),
+                                  }
+                                });
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-700 rounded-lg text-xs font-mono font-bold text-cyan-400 focus:outline-none focus:border-cyan-500"
+                            />
+                            <span className="text-[10px] text-zinc-500 block">Single User Private Offline</span>
+                          </div>
+
+                          {/* 3. Online Sharing */}
+                          <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-indigo-400 flex items-center gap-1">
+                                🌐 Online Sharing
+                              </label>
+                              <span className="text-[9px] bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded font-mono">Tier 3</span>
+                            </div>
+                            <input
+                              type="number"
+                              value={editingGame.tierPricing?.onlineSharing ?? Math.round((editingGame.price || 299) * 2.2)}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEditingGame({
+                                  ...editingGame,
+                                  tierPricing: {
+                                    offlineSharing: editingGame.tierPricing?.offlineSharing ?? editingGame.price ?? 299,
+                                    offlinePrivate: editingGame.tierPricing?.offlinePrivate ?? Math.round((editingGame.price || 299) * 1.5),
+                                    onlineSharing: val,
+                                    onlinePrivate: editingGame.tierPricing?.onlinePrivate ?? Math.round((editingGame.price || 299) * 3.2),
+                                  }
+                                });
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-700 rounded-lg text-xs font-mono font-bold text-indigo-400 focus:outline-none focus:border-indigo-500"
+                            />
+                            <span className="text-[10px] text-zinc-500 block">Shared Online Multiplayer</span>
+                          </div>
+
+                          {/* 4. Online Private */}
+                          <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                                👑 Online Private
+                              </label>
+                              <span className="text-[9px] bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded font-mono">Tier 4</span>
+                            </div>
+                            <input
+                              type="number"
+                              value={editingGame.tierPricing?.onlinePrivate ?? Math.round((editingGame.price || 299) * 3.2)}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEditingGame({
+                                  ...editingGame,
+                                  tierPricing: {
+                                    offlineSharing: editingGame.tierPricing?.offlineSharing ?? editingGame.price ?? 299,
+                                    offlinePrivate: editingGame.tierPricing?.offlinePrivate ?? Math.round((editingGame.price || 299) * 1.5),
+                                    onlineSharing: editingGame.tierPricing?.onlineSharing ?? Math.round((editingGame.price || 299) * 2.2),
+                                    onlinePrivate: val,
+                                  }
+                                });
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-700 rounded-lg text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                            />
+                            <span className="text-[10px] text-zinc-500 block">Full Private / CD Key VIP</span>
+                          </div>
+                        </div>
+                      </div>
+
                       <div>
                         <label className="block text-xs text-zinc-400 font-semibold mb-1">Genre</label>
                         <input
@@ -973,8 +1259,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                         setEditingGame({
                           platform: 'steam',
                           type: 'offline_account',
-                          price: 299,
+                          price: 100,
                           originalPrice: 2499,
+                          tierPricing: {
+                            offlineSharing: 100,
+                            offlinePrivate: 200,
+                            onlineSharing: 289,
+                            onlinePrivate: 400
+                          },
                           coverImage: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80',
                           inStock: true,
                           stockCount: 20,
@@ -1024,8 +1316,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                               {game.type.replace('_', ' ')}
                             </td>
                             <td className="py-3 px-3">
-                              <span className="font-bold text-emerald-400">{formatPrice(game.price)}</span>
-                              <span className="line-through text-zinc-500 block text-[10px]">{formatPrice(game.originalPrice)}</span>
+                              <div className="space-y-0.5 text-[10px] font-mono leading-tight">
+                                <div className="flex items-center gap-1"><span className="text-zinc-500">⚡ Off.Share:</span><span className="font-bold text-emerald-400">₹{game.tierPricing?.offlineSharing ?? game.price}</span></div>
+                                <div className="flex items-center gap-1"><span className="text-zinc-500">🔒 Off.Priv:</span><span className="font-bold text-cyan-400">₹{game.tierPricing?.offlinePrivate ?? Math.round(game.price * 1.5)}</span></div>
+                                <div className="flex items-center gap-1"><span className="text-zinc-500">🌐 Onl.Share:</span><span className="font-bold text-indigo-400">₹{game.tierPricing?.onlineSharing ?? Math.round(game.price * 2.2)}</span></div>
+                                <div className="flex items-center gap-1"><span className="text-zinc-500">👑 Onl.Priv:</span><span className="font-bold text-amber-400">₹{game.tierPricing?.onlinePrivate ?? Math.round(game.price * 3.2)}</span></div>
+                              </div>
                             </td>
                             <td className="py-3 px-3">
                               <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -1845,33 +2141,63 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
             </div>
           )}
 
-          {/* TAB 6: CUSTOMER REVIEWS MODERATION */}
+          {/* TAB 6: CUSTOMER REVIEWS & PROOF MODERATION */}
           {activeTab === 'reviews' && (
             <div className="space-y-4">
-              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h4 className="font-bold text-sm text-white flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-amber-400" />
-                    Customer Reviews &amp; Testimonials Moderation ({reviews.length})
+                    Customer Reviews &amp; Screenshot Proofs ({reviews.length})
                   </h4>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Live gamer reviews appearing on the store. You can audit and delete any invalid or spam reviews.
+                    Upload real WhatsApp delivery screenshots, edit reviews, or purge old test reviews.
                   </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClearAllReviewsAction}
+                    className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear All Reviews</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenAddReview}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-black flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Proof Review</span>
+                  </button>
                 </div>
               </div>
 
               {reviews.length === 0 ? (
-                <div className="text-center py-12 p-6 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 text-xs">
-                  No customer reviews found.
+                <div className="text-center py-12 p-6 rounded-2xl bg-zinc-950 border border-zinc-800 text-xs space-y-3">
+                  <p className="text-zinc-300 font-semibold">No reviews currently listed.</p>
+                  <p className="text-zinc-500 max-w-sm mx-auto">
+                    All old pre-seeded reviews have been removed. Click "Add Proof Review" above to upload your customer WhatsApp chats, delivery confirmations, and genuine buyer feedback!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddReview}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-colors cursor-pointer"
+                  >
+                    Post First Image Proof Review
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {reviews.map((rev) => (
                     <div
                       key={rev.id}
-                      className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                      className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                     >
-                      <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="space-y-2 flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-bold text-white text-xs">{rev.userName}</span>
                           <div className="flex text-amber-400">
@@ -1894,23 +2220,55 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
                             Verified Purchase
                           </span>
+                          {rev.images && rev.images.length > 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                              📸 {rev.images.length} Image Proof{rev.images.length > 1 ? 's' : ''}
+                            </span>
+                          )}
                         </div>
 
-                        <p className="text-xs text-zinc-300">"{rev.comment}"</p>
+                        <p className="text-xs text-zinc-300 whitespace-pre-line leading-relaxed">"{rev.comment}"</p>
+
+                        {/* Image Thumbnails Gallery */}
+                        {rev.images && rev.images.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {rev.images.map((img, imgIdx) => (
+                              <button
+                                key={imgIdx}
+                                type="button"
+                                onClick={() => setPreviewAdminModalImg(img)}
+                                className="relative w-14 h-14 rounded-lg overflow-hidden border border-zinc-700 hover:border-emerald-500 transition-all cursor-pointer group"
+                              >
+                                <img src={img} alt="Proof" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
                         <span className="text-[10px] text-zinc-500 font-mono block">
                           Posted: {new Date(rev.createdAt).toLocaleString()}
                         </span>
                       </div>
 
-                      <button
-                        onClick={() => handleDeleteReviewItem(rev.id)}
-                        className="p-2 rounded-lg bg-zinc-900 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors flex items-center gap-1.5 text-xs flex-shrink-0"
-                        title="Delete Review"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span>Delete</span>
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditReview(rev)}
+                          className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Edit &amp; Add Images</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteReviewItem(rev.id)}
+                          className="p-1.5 rounded-lg bg-zinc-900 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 border border-zinc-800 text-xs transition-colors cursor-pointer"
+                          title="Delete Review"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1976,6 +2334,224 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
 
         </div>
       </div>
+
+      {/* ADD / EDIT CUSTOMER REVIEW WITH PROOF MODAL */}
+      {isEditingReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-xl bg-zinc-950 border border-emerald-500/50 rounded-3xl shadow-2xl overflow-hidden text-white my-auto max-h-[92vh] flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/60 flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">
+                    {reviewFormState.id ? 'Edit Customer Review & Proofs' : 'Add Verified Proof Review'}
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Upload customer WhatsApp screenshots, delivery proof &amp; verified rating
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsEditingReviewModal(false)}
+                className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveReview} className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 text-xs">
+              <div>
+                <label className="block text-zinc-300 font-semibold mb-1">Select Game:</label>
+                <select
+                  value={reviewFormState.gameId}
+                  onChange={(e) => {
+                    const selId = e.target.value;
+                    const matched = games.find(g => g.id === selId);
+                    setReviewFormState(prev => ({
+                      ...prev,
+                      gameId: selId,
+                      gameTitle: matched?.title || prev.gameTitle
+                    }));
+                  }}
+                  className="w-full p-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-white font-medium focus:outline-none focus:border-emerald-500"
+                >
+                  {games.map(g => (
+                    <option key={g.id} value={g.id}>
+                      {g.title} ({g.platform.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-zinc-300 font-semibold mb-1">Customer / Buyer Name:</label>
+                  <input
+                    type="text"
+                    required
+                    value={reviewFormState.userName}
+                    onChange={(e) => setReviewFormState(prev => ({ ...prev, userName: e.target.value }))}
+                    placeholder="e.g. Rahul Sharma (Delhi)"
+                    className="w-full p-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-300 font-semibold mb-1">Star Rating (1 to 5):</label>
+                  <div className="flex items-center gap-1.5 p-2 bg-zinc-900 border border-zinc-700 rounded-xl">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setReviewFormState(prev => ({ ...prev, rating: star }))}
+                        className="p-1 hover:scale-125 transition-transform cursor-pointer"
+                      >
+                        <Star className={`w-4 h-4 ${star <= reviewFormState.rating ? 'fill-amber-400 text-amber-400' : 'text-zinc-600'}`} />
+                      </button>
+                    ))}
+                    <span className="ml-2 font-bold text-white font-mono">{reviewFormState.rating} / 5 Stars</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-zinc-300 font-semibold mb-1">Customer Testimonial Comment:</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={reviewFormState.comment}
+                  onChange={(e) => setReviewFormState(prev => ({ ...prev, comment: e.target.value }))}
+                  placeholder="e.g. Paid ₹100 via GPay QR, received login details on WhatsApp within 3 minutes. Game works smoothly offline!"
+                  className="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 leading-relaxed font-sans"
+                />
+              </div>
+
+              {/* SCREENSHOT PROOF UPLOADER */}
+              <div className="p-4 rounded-2xl bg-zinc-900/70 border border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-emerald-400" />
+                      Proof Screenshots (WhatsApp Chats, Steam Library, Downloads)
+                    </span>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Upload screenshot proofs from your device or paste image URLs
+                    </p>
+                  </div>
+                  <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs flex items-center gap-1.5 transition-colors">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Proofs</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleReviewScreenshotUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Direct URL Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={reviewImageUrlInput}
+                    onChange={(e) => setReviewImageUrlInput(e.target.value)}
+                    placeholder="Or paste screenshot image URL (https://...)"
+                    className="flex-1 p-2 bg-zinc-950 border border-zinc-700 rounded-lg text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddReviewImageUrl}
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs cursor-pointer"
+                  >
+                    Add URL
+                  </button>
+                </div>
+
+                {/* Proof Thumbnails Grid */}
+                {reviewFormState.images.length > 0 ? (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] text-emerald-400 font-bold block">
+                      Attached Proofs ({reviewFormState.images.length} photos):
+                    </span>
+                    <div className="flex flex-wrap gap-2.5">
+                      {reviewFormState.images.map((img, idx) => (
+                        <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-emerald-500/50 group">
+                          <img src={img} alt="Proof" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveReviewImage(idx)}
+                            className="absolute top-1 right-1 p-1 rounded-full bg-black/80 hover:bg-rose-600 text-white text-[10px] w-5 h-5 flex items-center justify-center transition-colors cursor-pointer"
+                            title="Remove image"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-zinc-500 italic">
+                    No images attached yet. Uploading screenshot proof makes this testimonial 100% verified!
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingReviewModal(false)}
+                  className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingReview}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingReview ? 'Saving...' : 'Save Review with Proofs'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN LIGHTBOX MODAL */}
+      {previewAdminModalImg && (
+        <div 
+          className="fixed inset-0 z-60 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setPreviewAdminModalImg(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh] bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl p-2" onClick={(e) => e.stopPropagation()}>
+            <img src={previewAdminModalImg} alt="Screenshot Proof" className="max-w-full max-h-[80vh] object-contain rounded-xl" />
+            <div className="flex items-center justify-between p-3 border-t border-zinc-800 text-xs">
+              <span className="font-bold text-emerald-400">Verified Screenshot Proof</span>
+              <button
+                type="button"
+                onClick={() => setPreviewAdminModalImg(null)}
+                className="px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewAdminModalImg(null)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-black/80 hover:bg-black text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

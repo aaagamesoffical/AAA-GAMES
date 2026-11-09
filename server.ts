@@ -11,6 +11,7 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
   query, 
   orderBy, 
   limit 
@@ -564,16 +565,22 @@ Your Persona & Rules:
     let response: any = null;
     let searchSources: Array<{ title: string; uri: string }> = [];
 
+    const withTimeout = <T>(p: Promise<T>, ms = 4000): Promise<T> => 
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), ms))
+      ]);
+
     // Attempt 1: Gemini 3.8 Flash with Google Search Grounding
     try {
-      response = await ai.models.generateContent({
+      response = await withTimeout(ai.models.generateContent({
         model: 'gemini-3.8-flash',
         contents,
         config: {
           systemInstruction,
           tools: [{ googleSearch: {} }],
         },
-      });
+      }), 4500);
 
       const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (Array.isArray(chunks)) {
@@ -591,15 +598,14 @@ Your Persona & Rules:
     } catch (groundingErr) {
       // Attempt 2: Fallback to standard Gemini 3.8 Flash without external search tools
       try {
-        response = await ai.models.generateContent({
+        response = await withTimeout(ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents,
           config: {
             systemInstruction
           },
-        });
+        }), 3000);
       } catch (geminiErr) {
-        // Handled in catch block below
         response = null;
       }
     }
@@ -720,12 +726,19 @@ app.post('/api/ai/verify-utr', async (req, res) => {
   }
 });
 
-// Sync Steam Games & Coupons to Firestore
+// Sync Steam Games & Coupons to Firestore (Forces tierPricing: 100/200/289/400 and purges old reviews)
 app.post('/api/catalog/sync', async (_req, res) => {
   try {
     for (const game of INITIAL_GAMES) {
       await setDoc(doc(db, 'games', game.id), sanitizeData({
         ...game,
+        price: 100,
+        tierPricing: {
+          offlineSharing: 100,
+          offlinePrivate: 200,
+          onlineSharing: 289,
+          onlinePrivate: 400
+        },
         createdAt: game.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }), { merge: true });
@@ -737,7 +750,31 @@ app.post('/api/catalog/sync', async (_req, res) => {
         createdAt: new Date().toISOString()
       }), { merge: true });
     }
-    res.json({ success: true, count: INITIAL_GAMES.length, message: `All ${INITIAL_GAMES.length} official Steam games and coupons synced to Firestore!` });
+
+    // Purge old pre-seeded reviews so owner can upload their own image proofs
+    const revsSnap = await getDocs(collection(db, 'reviews'));
+    for (const rDoc of revsSnap.docs) {
+      await deleteDoc(rDoc.ref);
+    }
+
+    res.json({ 
+      success: true, 
+      count: INITIAL_GAMES.length, 
+      message: `All ${INITIAL_GAMES.length} official Steam games updated to Offline Share ₹100, Offline Private ₹200, Online Sharing ₹289, Online Private ₹400. Old reviews purged.` 
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clear All Reviews
+app.post('/api/reviews/clear', async (_req, res) => {
+  try {
+    const revsSnap = await getDocs(collection(db, 'reviews'));
+    for (const rDoc of revsSnap.docs) {
+      await deleteDoc(rDoc.ref);
+    }
+    res.json({ success: true, message: 'All reviews cleared successfully. You can now upload your customer proof reviews.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

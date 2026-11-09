@@ -22,7 +22,7 @@ import confetti from 'canvas-confetti';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { createOrder } from '../services/gameService';
-import { OrderItem, StoreSettings } from '../types/game';
+import { OrderItem, StoreSettings, GAME_CATEGORIES } from '../types/game';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -164,15 +164,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     try {
       // Generate instant digital credentials for each item
-      const orderItems: OrderItem[] = items.map(({ game }) => ({
-        gameId: game.id,
-        title: game.title,
-        platform: game.platform,
-        type: game.type,
-        price: game.price,
-        deliveryType: game.deliveryType,
-        digitalKeyOrAccount: generateDeliveryCredentials(game.platform, game.type, game.title),
-      }));
+      const orderItems: OrderItem[] = items.map((item) => {
+        const cat = item.selectedCategory || 'offline_sharing';
+        const catMeta = GAME_CATEGORIES.find((c) => c.id === cat);
+        return {
+          gameId: item.game.id,
+          title: item.game.title,
+          platform: item.game.platform,
+          type: item.game.type,
+          price: item.categoryPrice || item.game.price,
+          deliveryType: item.game.deliveryType,
+          category: cat,
+          categoryLabel: catMeta?.name || 'Offline Sharing',
+          digitalKeyOrAccount: generateDeliveryCredentials(item.game.platform, item.game.type, item.game.title),
+        };
+      });
 
       const paymentTxnId = paymentMethod === 'upi'
         ? (customerUtr ? `UPI_UTR_${customerUtr.trim()}` : `UPI_${Date.now()}`)
@@ -282,9 +288,29 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               
               {/* Order Summary Strip */}
               <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs space-y-2.5">
-                <div className="flex justify-between text-zinc-400">
-                  <span>Selected Titles:</span>
-                  <span className="text-white font-medium">{items.length} Game(s)</span>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Selected Titles ({items.length}):</span>
+                    <span className="text-white font-medium">Instant Delivery</span>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    {items.map((it) => {
+                      const cat = it.selectedCategory || 'offline_sharing';
+                      const meta = GAME_CATEGORIES.find((c) => c.id === cat);
+                      const price = it.categoryPrice || it.game.price;
+                      return (
+                        <div key={it.game.id} className="flex items-center justify-between text-xs py-1 border-b border-zinc-900">
+                          <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                            <span className="font-semibold text-zinc-200 truncate">{it.game.title}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                              {meta?.name || 'Offline Sharing'}
+                            </span>
+                          </div>
+                          <span className="font-mono font-bold text-white shrink-0">{formatPrice(price)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 
                 {/* Coupon Code Section */}
@@ -814,11 +840,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </div>
                   )}
                   <div className="pt-2 border-t border-zinc-800">
-                    <span className="text-zinc-400 font-semibold block mb-1">Purchased Titles:</span>
-                    <ul className="space-y-1">
+                    <span className="text-zinc-400 font-semibold block mb-1">Purchased Titles &amp; Editions:</span>
+                    <ul className="space-y-1.5">
                       {generatedItems.map((item, idx) => (
                         <li key={idx} className="flex items-center justify-between text-xs font-medium text-white">
-                          <span>• {item.title}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span>• {item.title}</span>
+                            <span className="text-[10px] text-emerald-400 font-semibold">
+                              [{item.categoryLabel || 'Offline Sharing'}]
+                            </span>
+                          </div>
                           <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
                             {item.platform}
                           </span>
@@ -832,7 +863,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* ACTION: Send to WhatsApp (+91 9442964232) */}
               <div className="space-y-2.5 pt-1">
                 {(() => {
-                  const proofMsg = `🎮 *AAA GAMES - ORDER PAYMENT PROOF* 🎮\n\n*Order ID:* ${completedOrderId}\n*Customer Name:* ${customerName.trim() || 'Gamer'}\n*WhatsApp Mobile:* +91 ${customerPhone.trim()}\n*Total Amount:* ₹${finalTotal}\n*Payment Method:* ${paymentMethod.toUpperCase()}\n*UTR / Transaction Ref:* ${customerUtr ? customerUtr.trim() : 'Paid Online'}\n\n*Games Ordered:*\n${generatedItems.map((i) => `• ${i.title} (${i.platform.toUpperCase()})`).join('\n')}\n\nI have sent my payment proof screenshot in this chat. Please verify and send my game login credentials to this WhatsApp number!`;
+                  const proofMsg = `🎮 *AAA GAMES - ORDER PAYMENT PROOF* 🎮\n\n*Order ID:* ${completedOrderId}\n*Customer Name:* ${customerName.trim() || 'Gamer'}\n*WhatsApp Mobile:* +91 ${customerPhone.trim()}\n*Total Amount:* ₹${finalTotal}\n*Payment Method:* ${paymentMethod.toUpperCase()}\n*UTR / Transaction Ref:* ${customerUtr ? customerUtr.trim() : 'Paid Online'}\n\n*Games Ordered:*\n${generatedItems.map((i) => `• ${i.title} [${i.categoryLabel || 'Offline Sharing'}] (${i.platform.toUpperCase()}) - ₹${i.price}`).join('\n')}\n\nI have sent my payment proof screenshot in this chat. Please verify and send my game login credentials to this WhatsApp number!`;
 
                   return (
                     <>

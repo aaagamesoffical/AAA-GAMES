@@ -75,7 +75,7 @@ function MainStore() {
     const set = new Set<string>();
     games.forEach((g) => {
       if (g.genre) {
-        g.genre.split('/').forEach((part) => set.add(part.trim()));
+        g.genre.split('/').forEach((part: string) => set.add(part.trim()));
       }
     });
     return ['all', ...Array.from(set)];
@@ -93,7 +93,7 @@ function MainStore() {
     // Genre filter
     if (selectedGenre !== 'all') {
       result = result.filter((g) =>
-        g.genre?.toLowerCase().includes(selectedGenre.toLowerCase())
+        Boolean(g.genre?.toLowerCase().includes(selectedGenre.toLowerCase()))
       );
     }
 
@@ -103,7 +103,7 @@ function MainStore() {
       result = result.filter(
         (g) =>
           g.title.toLowerCase().includes(q) ||
-          g.genre.toLowerCase().includes(q) ||
+          Boolean(g.genre?.toLowerCase().includes(q)) ||
           g.platform.toLowerCase().includes(q) ||
           g.description.toLowerCase().includes(q)
       );

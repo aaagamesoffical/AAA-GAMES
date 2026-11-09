@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Game, CartItem, Coupon } from '../types/game';
+import { Game, CartItem, Coupon, GameEditionCategory, getGameTierPrice } from '../types/game';
 import { INITIAL_COUPONS } from '../data/initialGames';
 import { subscribeToCoupons } from '../services/gameService';
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (game: Game) => void;
+  addToCart: (game: Game, category?: GameEditionCategory) => void;
+  updateItemCategory: (gameId: string, category: GameEditionCategory) => void;
   removeFromCart: (gameId: string) => void;
   clearCart: () => void;
   totalItemsCount: number;
@@ -35,7 +36,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('cheap_cart');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed: any[] = JSON.parse(saved);
+      // Ensure selectedCategory and categoryPrice are populated
+      return parsed.map((item) => {
+        const cat = item.selectedCategory || 'offline_sharing';
+        const price = item.categoryPrice || getGameTierPrice(item.game, cat);
+        return {
+          ...item,
+          selectedCategory: cat,
+          categoryPrice: price
+        };
+      });
     } catch {
       return [];
     }
@@ -69,7 +81,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsub = subscribeToCoupons((firestoreCoupons) => {
       if (firestoreCoupons && firestoreCoupons.length > 0) {
-        // Merge without duplicates
         const map = new Map<string, Coupon>();
         INITIAL_COUPONS.forEach((c) => {
           map.set(c.code.toUpperCase(), {
@@ -100,15 +111,46 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('cheap_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
-  const addToCart = (game: Game) => {
+  const addToCart = (game: Game, category: GameEditionCategory = 'offline_sharing') => {
+    const tierPrice = getGameTierPrice(game, category);
     setItems((prev) => {
-      const existing = prev.find((i) => i.game.id === game.id);
-      if (existing) {
-        return prev; // Digital items are 1 per order per game
+      const existingIndex = prev.findIndex((i) => i.game.id === game.id);
+      if (existingIndex > -1) {
+        // Update category and price if already in cart
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          selectedCategory: category,
+          categoryPrice: tierPrice
+        };
+        return updated;
       }
-      return [...prev, { game, quantity: 1 }];
+      return [
+        ...prev, 
+        { 
+          game, 
+          quantity: 1, 
+          selectedCategory: category, 
+          categoryPrice: tierPrice 
+        }
+      ];
     });
     setIsCartOpen(true);
+  };
+
+  const updateItemCategory = (gameId: string, category: GameEditionCategory) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.game.id === gameId) {
+          return {
+            ...item,
+            selectedCategory: category,
+            categoryPrice: getGameTierPrice(item.game, category)
+          };
+        }
+        return item;
+      })
+    );
   };
 
   const removeFromCart = (gameId: string) => {
@@ -128,7 +170,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isInWishlist = (gameId: string) => wishlist.includes(gameId);
 
-  const subtotal = items.reduce((sum, item) => sum + item.game.price * item.quantity, 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + (item.categoryPrice ?? getGameTierPrice(item.game, item.selectedCategory || 'offline_sharing')) * item.quantity, 
+    0
+  );
 
   const discountAmount = appliedCoupon
     ? Math.round((subtotal * appliedCoupon.discountPercent) / 100)
@@ -214,6 +259,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         items,
         addToCart,
+        updateItemCategory,
         removeFromCart,
         clearCart,
         totalItemsCount,
