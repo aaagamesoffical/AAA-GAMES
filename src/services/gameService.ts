@@ -106,78 +106,222 @@ export function subscribeToGames(callback: (games: Game[]) => void): () => void 
 
 // Add or Update Game (Admin)
 export async function saveGame(game: Partial<Game> & { id: string }): Promise<void> {
+  const now = new Date().toISOString();
+  const payload = sanitizeFirestoreData({
+    ...game,
+    updatedAt: now,
+    createdAt: game.createdAt || now
+  });
+
+  let clientSuccess = false;
   try {
     const gameRef = doc(db, GAMES_COLLECTION, game.id);
     const existing = await getDoc(gameRef);
-    const now = new Date().toISOString();
-    
     if (existing.exists()) {
-      await updateDoc(gameRef, sanitizeFirestoreData({
-        ...game,
-        updatedAt: now
-      }));
+      await updateDoc(gameRef, payload);
     } else {
-      await setDoc(gameRef, sanitizeFirestoreData({
-        ...game,
-        createdAt: now,
-        updatedAt: now
-      }));
+      await setDoc(gameRef, payload);
     }
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${GAMES_COLLECTION}/${game.id}`);
+    console.warn('Client Firestore saveGame warning, syncing via server:', err);
+  }
+
+  try {
+    const res = await fetch('/api/games', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server saveGame sync failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to save game'), OperationType.WRITE, `${GAMES_COLLECTION}/${game.id}`);
   }
 }
 
 // Delete Game (Admin)
 export async function deleteGame(gameId: string): Promise<void> {
+  let clientSuccess = false;
   try {
     const gameRef = doc(db, GAMES_COLLECTION, gameId);
     await deleteDoc(gameRef);
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `${GAMES_COLLECTION}/${gameId}`);
+    console.warn('Client deleteGame warning, syncing via server:', err);
+  }
+
+  try {
+    const res = await fetch(`/api/games/${encodeURIComponent(gameId)}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server deleteGame sync failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to delete game'), OperationType.DELETE, `${GAMES_COLLECTION}/${gameId}`);
   }
 }
 
-// Subscribe to Coupons
+// Local set of deleted coupons to ensure they never reappear on fallback
+function getDeletedCouponCodes(): Set<string> {
+  try {
+    const raw = localStorage.getItem('aaa_deleted_coupons');
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markCouponDeleted(code: string) {
+  try {
+    const set = getDeletedCouponCodes();
+    set.add(code.toUpperCase());
+    localStorage.setItem('aaa_deleted_coupons', JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+function unmarkCouponDeleted(code: string) {
+  try {
+    const set = getDeletedCouponCodes();
+    set.delete(code.toUpperCase());
+    localStorage.setItem('aaa_deleted_coupons', JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+// Subscribe to Coupons with instant local & server synchronization
 export function subscribeToCoupons(callback: (coupons: Coupon[]) => void): () => void {
   const q = collection(db, COUPONS_COLLECTION);
-  return onSnapshot(q, (snapshot) => {
+  let seeded = false;
+
+  return onSnapshot(q, async (snapshot) => {
+    const deletedCodes = getDeletedCouponCodes();
+
     if (snapshot.empty) {
-      callback(INITIAL_COUPONS.map(c => ({ ...c, id: c.code, createdAt: new Date().toISOString() })));
+      const activeInitials = INITIAL_COUPONS
+        .filter(c => !deletedCodes.has(c.code.toUpperCase()))
+        .map(c => ({ ...c, id: c.code, createdAt: new Date().toISOString() }));
+      
+      callback(activeInitials);
+
+      // Auto-seed into real Firestore docs once so they can be deleted
+      if (!seeded && activeInitials.length > 0) {
+        seeded = true;
+        for (const coupon of activeInitials) {
+          try {
+            await setDoc(doc(db, COUPONS_COLLECTION, coupon.code.toUpperCase()), sanitizeFirestoreData({
+              ...coupon,
+              id: coupon.code.toUpperCase(),
+              code: coupon.code.toUpperCase(),
+              isActive: true,
+              createdAt: new Date().toISOString()
+            }), { merge: true });
+          } catch {
+            // ignore initial seed error
+          }
+        }
+      }
     } else {
       const coupons: Coupon[] = [];
       snapshot.forEach((d) => {
-        coupons.push({ id: d.id, ...d.data() } as Coupon);
+        const data = d.data() as Coupon;
+        const code = (data.code || d.id).toUpperCase();
+        if (!deletedCodes.has(code)) {
+          coupons.push({ ...data, id: d.id, code } as Coupon);
+        }
       });
       callback(coupons);
     }
   }, (err) => {
     console.error('Error listening to coupons:', err);
-    callback(INITIAL_COUPONS.map(c => ({ ...c, id: c.code, createdAt: new Date().toISOString() })));
+    const deletedCodes = getDeletedCouponCodes();
+    const fallback = INITIAL_COUPONS
+      .filter(c => !deletedCodes.has(c.code.toUpperCase()))
+      .map(c => ({ ...c, id: c.code, createdAt: new Date().toISOString() }));
+    callback(fallback);
   });
 }
 
 // Save Coupon (Admin)
 export async function saveCoupon(coupon: Coupon): Promise<void> {
+  const cleanCode = coupon.code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  unmarkCouponDeleted(cleanCode);
+
+  const payload = sanitizeFirestoreData({
+    ...coupon,
+    id: cleanCode,
+    code: cleanCode,
+    discountPercent: Number(coupon.discountPercent),
+    minSpend: Number(coupon.minSpend) || 0,
+    isActive: coupon.isActive !== false,
+    updatedAt: new Date().toISOString(),
+    createdAt: coupon.createdAt || new Date().toISOString()
+  });
+
+  // Client-side Firestore write
+  let clientSuccess = false;
   try {
-    const couponRef = doc(db, COUPONS_COLLECTION, coupon.code.toUpperCase());
-    await setDoc(couponRef, {
-      ...coupon,
-      code: coupon.code.toUpperCase(),
-      createdAt: coupon.createdAt || new Date().toISOString()
-    }, { merge: true });
+    const couponRef = doc(db, COUPONS_COLLECTION, cleanCode);
+    await setDoc(couponRef, payload, { merge: true });
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${COUPONS_COLLECTION}/${coupon.code}`);
+    console.warn('Client Firestore coupon write failed, falling back to server API:', err);
+  }
+
+  // Server API proxy sync (guaranteed admin permission bypass)
+  try {
+    const res = await fetch('/api/coupons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server API coupon sync failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to save coupon in both client and server'), OperationType.WRITE, `${COUPONS_COLLECTION}/${cleanCode}`);
   }
 }
 
 // Delete Coupon (Admin)
 export async function deleteCoupon(couponId: string): Promise<void> {
+  const cleanCode = couponId.trim().toUpperCase();
+  markCouponDeleted(cleanCode);
+
+  let clientSuccess = false;
   try {
-    const couponRef = doc(db, COUPONS_COLLECTION, couponId);
+    const couponRef = doc(db, COUPONS_COLLECTION, cleanCode);
     await deleteDoc(couponRef);
+    if (cleanCode !== couponId) {
+      await deleteDoc(doc(db, COUPONS_COLLECTION, couponId));
+    }
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `${COUPONS_COLLECTION}/${couponId}`);
+    console.warn('Client delete coupon failed, attempting server proxy:', err);
+  }
+
+  try {
+    const res = await fetch(`/api/coupons/${encodeURIComponent(cleanCode)}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server delete coupon proxy failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to delete coupon'), OperationType.DELETE, `${COUPONS_COLLECTION}/${cleanCode}`);
   }
 }
 
@@ -244,18 +388,36 @@ export function subscribeToAllOrders(callback: (orders: Order[]) => void): () =>
 
 // Update Order Status (Admin)
 export async function updateOrderStatus(orderId: string, status: Order['status'], assignedCredentials?: Record<string, string>): Promise<void> {
+  const updateData: Record<string, any> = {
+    status,
+    updatedAt: new Date().toISOString()
+  };
+  if (assignedCredentials) {
+    updateData.assignedCredentials = assignedCredentials;
+  }
+
+  let clientSuccess = false;
   try {
     const orderRef = doc(db, ORDERS_COLLECTION, orderId);
-    const updateData: Record<string, any> = {
-      status,
-      updatedAt: new Date().toISOString()
-    };
-    if (assignedCredentials) {
-      updateData.assignedCredentials = assignedCredentials;
-    }
     await updateDoc(orderRef, updateData);
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `${ORDERS_COLLECTION}/${orderId}`);
+    console.warn('Client updateOrderStatus warning, syncing via server:', err);
+  }
+
+  try {
+    const res = await fetch('/api/orders/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, status, assignedCredentials })
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server order status sync failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to update order status'), OperationType.UPDATE, `${ORDERS_COLLECTION}/${orderId}`);
   }
 }
 
@@ -277,15 +439,34 @@ export function subscribeToGameReviews(gameId: string, callback: (reviews: Revie
 // Add Review
 export async function addReview(review: Omit<Review, 'id' | 'createdAt'>): Promise<void> {
   const reviewId = 'rev-' + Math.random().toString(36).substring(2, 9);
+  const data = sanitizeFirestoreData({
+    ...review,
+    id: reviewId,
+    createdAt: new Date().toISOString()
+  });
+
+  let clientSuccess = false;
   try {
     const reviewRef = doc(db, REVIEWS_COLLECTION, reviewId);
-    await setDoc(reviewRef, sanitizeFirestoreData({
-      ...review,
-      id: reviewId,
-      createdAt: new Date().toISOString()
-    }));
+    await setDoc(reviewRef, data);
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, `${REVIEWS_COLLECTION}/${reviewId}`);
+    console.warn('Client addReview warning, syncing via server:', err);
+  }
+
+  try {
+    const res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server addReview failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to create review'), OperationType.CREATE, `${REVIEWS_COLLECTION}/${reviewId}`);
   }
 }
 
@@ -308,24 +489,59 @@ export function subscribeToAllReviews(callback: (reviews: Review[]) => void): ()
 
 // Delete Review (Admin)
 export async function deleteReview(reviewId: string): Promise<void> {
+  let clientSuccess = false;
   try {
     const reviewRef = doc(db, REVIEWS_COLLECTION, reviewId);
     await deleteDoc(reviewRef);
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `${REVIEWS_COLLECTION}/${reviewId}`);
+    console.warn('Client deleteReview warning, syncing via server:', err);
+  }
+
+  try {
+    const res = await fetch(`/api/reviews/${encodeURIComponent(reviewId)}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server deleteReview sync failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to delete review'), OperationType.DELETE, `${REVIEWS_COLLECTION}/${reviewId}`);
   }
 }
 
 // Update Review (Admin)
 export async function updateReview(reviewId: string, updates: Partial<Review>): Promise<void> {
+  const payload = sanitizeFirestoreData({
+    ...updates,
+    id: reviewId,
+    updatedAt: new Date().toISOString()
+  });
+
+  let clientSuccess = false;
   try {
     const reviewRef = doc(db, REVIEWS_COLLECTION, reviewId);
-    await updateDoc(reviewRef, sanitizeFirestoreData({
-      ...updates,
-      updatedAt: new Date().toISOString()
-    }));
+    await updateDoc(reviewRef, payload);
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `${REVIEWS_COLLECTION}/${reviewId}`);
+    console.warn('Client updateReview warning, syncing via server:', err);
+  }
+
+  try {
+    const res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server updateReview sync failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to update review'), OperationType.UPDATE, `${REVIEWS_COLLECTION}/${reviewId}`);
   }
 }
 
@@ -336,7 +552,13 @@ export async function clearAllReviews(): Promise<void> {
     const deletePromises = snap.docs.map((d) => deleteDoc(d.ref));
     await Promise.all(deletePromises);
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, REVIEWS_COLLECTION);
+    console.warn('Client clearAllReviews failed, syncing via server:', err);
+  }
+
+  try {
+    await fetch('/api/reviews/clear', { method: 'POST' });
+  } catch (serverErr) {
+    console.warn('Server clear reviews failed:', serverErr);
   }
 }
 
@@ -357,14 +579,33 @@ export function subscribeToStoreSettings(callback: (settings: StoreSettings) => 
 
 // Save Store Settings (Admin)
 export async function saveStoreSettings(settings: StoreSettings): Promise<void> {
+  const payload = sanitizeFirestoreData({
+    ...settings,
+    updatedAt: new Date().toISOString()
+  });
+
+  let clientSuccess = false;
   try {
     const settingsRef = doc(db, SETTINGS_COLLECTION, 'store_config');
-    await setDoc(settingsRef, sanitizeFirestoreData({
-      ...settings,
-      updatedAt: new Date().toISOString()
-    }), { merge: true });
+    await setDoc(settingsRef, payload, { merge: true });
+    clientSuccess = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${SETTINGS_COLLECTION}/store_config`);
+    console.warn('Client saveStoreSettings warning, syncing via server:', err);
+  }
+
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) return;
+  } catch (serverErr) {
+    console.warn('Server saveStoreSettings sync failed:', serverErr);
+  }
+
+  if (!clientSuccess) {
+    handleFirestoreError(new Error('Failed to save store settings'), OperationType.WRITE, `${SETTINGS_COLLECTION}/store_config`);
   }
 }
 

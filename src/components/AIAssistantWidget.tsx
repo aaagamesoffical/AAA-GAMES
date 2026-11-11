@@ -227,14 +227,14 @@ export const AIAssistantWidget: React.FC = () => {
   return (
     <>
       {/* Floating Trigger Button */}
-      <div className="fixed bottom-6 left-6 z-40">
+      <div className="fixed bottom-20 md:bottom-6 left-3 sm:left-6 z-40">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="relative group p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-zinc-950 font-bold shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer"
+          className="relative group p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-zinc-950 font-bold shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer"
           title="Ask AAA Cyber AI Assistant with Google Search"
         >
           <div className="relative">
-            <Bot className="w-6 h-6 text-zinc-950" />
+            <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-950" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-zinc-950 rounded-full flex items-center justify-center">
               <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-ping" />
             </span>
@@ -250,7 +250,7 @@ export const AIAssistantWidget: React.FC = () => {
 
       {/* Slide-in AI Dialog */}
       {isOpen && (
-        <div className="fixed bottom-24 left-4 sm:left-6 z-50 w-[calc(100vw-32px)] sm:w-[420px] max-h-[600px] h-[550px] bg-zinc-950 border border-emerald-500/40 rounded-3xl shadow-[0_10px_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden text-white animate-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-20 md:bottom-24 left-3 sm:left-6 z-50 w-[calc(100vw-24px)] sm:w-[420px] max-h-[75vh] h-[520px] bg-zinc-950 border border-emerald-500/40 rounded-3xl shadow-[0_10px_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden text-white animate-in slide-in-from-bottom-5 duration-200">
           
           {/* Top Header */}
           <div className="p-4 bg-gradient-to-r from-zinc-900 via-zinc-900/95 to-zinc-950 border-b border-zinc-800 flex items-center justify-between">

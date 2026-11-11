@@ -199,31 +199,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Add at least one game to your cart first.' };
     }
 
-    // Check available coupons
+    // Check if code was explicitly deleted by admin
+    let isDeletedByAdmin = false;
+    try {
+      const raw = localStorage.getItem('aaa_deleted_coupons');
+      if (raw) {
+        const set: string[] = JSON.parse(raw);
+        isDeletedByAdmin = set.includes(cleanCode);
+      }
+    } catch {
+      // ignore
+    }
+
+    if (isDeletedByAdmin) {
+      return { success: false, message: `Coupon "${cleanCode}" is invalid or has expired.` };
+    }
+
+    // Check available coupons from live admin sync
     const match = availableCoupons.find((c) => c.code.toUpperCase() === cleanCode);
     if (!match) {
-      // Check popular fallback codes
-      if (cleanCode === 'AAAGAMES' || cleanCode === 'AAA') {
-        const fallback = { id: 'AAAGAMES', code: 'AAAGAMES', discountPercent: 15, minSpend: 0, isActive: true, createdAt: '' };
-        setAppliedCoupon(fallback);
-        return { success: true, message: 'Coupon AAAGAMES applied! 15% discount granted.' };
-      }
-      if (cleanCode === 'SAKTHI20' || cleanCode === 'SAKTHI') {
-        const fallback = { id: 'SAKTHI20', code: 'SAKTHI20', discountPercent: 20, minSpend: 0, isActive: true, createdAt: '' };
-        setAppliedCoupon(fallback);
-        return { success: true, message: 'Coupon SAKTHI20 applied! 20% discount granted.' };
-      }
-      if (cleanCode === 'CHEAPGAMER') {
-        const fallback = { id: 'CHEAPGAMER', code: 'CHEAPGAMER', discountPercent: 10, minSpend: 0, isActive: true, createdAt: '' };
-        setAppliedCoupon(fallback);
-        return { success: true, message: 'Coupon CHEAPGAMER applied! 10% discount granted.' };
-      }
-      if (cleanCode === 'STEAM50') {
-        const fallback = { id: 'STEAM50', code: 'STEAM50', discountPercent: 15, minSpend: 0, isActive: true, createdAt: '' };
-        setAppliedCoupon(fallback);
-        return { success: true, message: 'Coupon STEAM50 applied! 15% discount granted.' };
-      }
       return { success: false, message: `Coupon code "${cleanCode}" is invalid or expired.` };
+    }
+
+    if (match.isActive === false) {
+      return { success: false, message: `Coupon "${match.code}" is currently disabled by store admin.` };
     }
 
     if (subtotal < (match.minSpend || 0)) {

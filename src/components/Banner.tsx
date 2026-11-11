@@ -13,17 +13,17 @@ export const Banner: React.FC<BannerProps> = ({
   const cleanPhone = whatsappNumber.replace(/[^0-9]/g, '');
 
   return (
-    <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white text-xs sm:text-sm py-2 px-4 shadow-inner">
-      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 font-medium tracking-wide">
-          <span className="flex h-2 w-2 relative">
+    <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white text-[11px] sm:text-xs py-1.5 sm:py-2 px-3 sm:px-4 shadow-inner overflow-hidden w-full max-w-full">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-hidden w-full">
+        <div className="flex items-center gap-1.5 sm:gap-2 font-medium tracking-wide truncate min-w-0 flex-1">
+          <span className="flex h-2 w-2 relative shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400"></span>
           </span>
-          <span className="bg-black/25 px-2 py-0.5 rounded text-yellow-300 font-bold uppercase text-[11px] tracking-wider">
+          <span className="bg-black/25 px-1.5 py-0.5 rounded text-yellow-300 font-bold uppercase text-[9px] sm:text-[10px] tracking-wider shrink-0">
             AAA GAMES
           </span>
-          <span>{announcementText}</span>
+          <span className="truncate text-[10px] sm:text-xs">{announcementText}</span>
         </div>
         <div className="hidden md:flex items-center gap-5 text-xs text-white/90">
           <div className="flex items-center gap-1.5">

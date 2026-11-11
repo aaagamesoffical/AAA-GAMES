@@ -670,26 +670,28 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-zinc-800 bg-zinc-950 flex items-center justify-between gap-3 flex-shrink-0">
-          <button
-            onClick={() => toggleWishlist(game.id)}
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all ${
-              inWishlist
-                ? 'bg-rose-500/15 border-rose-500/50 text-rose-400'
-                : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white'
-            }`}
-          >
-            <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
-            <span className="hidden sm:inline">{inWishlist ? 'Wishlisted' : 'Add to Wishlist'}</span>
-          </button>
+        <div className="p-3 sm:p-5 border-t border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 flex-shrink-0">
+          <div className="flex items-center justify-between sm:justify-start gap-2">
+            <button
+              onClick={() => toggleWishlist(game.id)}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                inWishlist
+                  ? 'bg-rose-500/15 border-rose-500/50 text-rose-400'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
+              <span>{inWishlist ? 'Wishlisted' : 'Wishlist'}</span>
+            </button>
+          </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial">
             <button
               onClick={() => {
                 addToCart(game, selectedCategory);
                 onClose();
               }}
-              className="flex items-center gap-2 px-4 sm:px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Add to Cart</span>
@@ -697,7 +699,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose,
 
             <button
               onClick={handleBuyNow}
-              className="flex items-center gap-2 px-5 sm:px-7 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-95 cursor-pointer"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-7 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-95 cursor-pointer"
             >
               <span>Instant Buy ({formatPrice(activeTierPrice)})</span>
             </button>

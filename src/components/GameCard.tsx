@@ -132,11 +132,15 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
           </p>
         </div>
 
-        {/* 4 Category Edition Selector Pills */}
+        {/* Offline & Online Edition Selector */}
         <div className="pt-2 border-t border-zinc-800/80">
           <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-            <span>Edition Tier:</span>
-            <span className="text-emerald-400 font-mono text-[9px]">4 Tiers Available</span>
+            <span className="text-emerald-400 font-extrabold flex items-center gap-1">
+              <span>Offline / Online Edition:</span>
+            </span>
+            <span className="text-zinc-300 font-mono text-[9px] font-bold">
+              {GAME_CATEGORIES.find((c) => c.id === selectedCategory)?.shortLabel}
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-1 text-[10px] font-semibold">
             {GAME_CATEGORIES.map((cat) => {
@@ -152,13 +156,15 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
                   }}
                   className={`px-2 py-1.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
                     isSelected
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-sm'
-                      : 'bg-zinc-950/70 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                      ? 'bg-emerald-500/25 border-emerald-400 text-white font-extrabold shadow-sm'
+                      : 'bg-zinc-950/80 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
                   }`}
                   title={`${cat.label} - ₹${tierPrice}`}
                 >
                   <span className="truncate">{cat.shortLabel}</span>
-                  <span className="font-mono text-[10px] text-white font-bold ml-1">₹{tierPrice}</span>
+                  <span className={`font-mono text-[10px] font-black ml-1 ${isSelected ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                    ₹{tierPrice}
+                  </span>
                 </button>
               );
             })}
@@ -186,10 +192,10 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelectGame }) => {
             </button>
             <button
               onClick={() => addToCart(game, selectedCategory)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer whitespace-nowrap"
             >
               <ShoppingCart className="w-3.5 h-3.5" />
-              <span>Buy</span>
+              <span>Buy ({formatPrice(activePrice)})</span>
             </button>
           </div>
         </div>

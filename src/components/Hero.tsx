@@ -1,18 +1,32 @@
-import React from 'react';
-import { ShieldCheck, Zap, DownloadCloud, Sparkles, Flame, CheckCircle, ArrowRight } from 'lucide-react';
-import { Platform } from '../types/game';
+import React, { useState } from 'react';
+import { ShieldCheck, Zap, DownloadCloud, Sparkles, Flame, CheckCircle, ArrowRight, ShoppingCart } from 'lucide-react';
+import { Platform, GameEditionCategory, GAME_CATEGORIES } from '../types/game';
+import { useCart } from '../context/CartContext';
 
 interface HeroProps {
   onSelectPlatform: (platform: Platform | 'all') => void;
   onExploreDeals: () => void;
   storeName?: string;
+  onSelectGame?: (game: any) => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({ 
   onSelectPlatform, 
   onExploreDeals,
-  storeName = 'AAA GAMES'
+  storeName = 'AAA GAMES',
+  onSelectGame
 }) => {
+  const { addToCart, formatPrice, setIsCartOpen } = useCart();
+  const [selectedEdition, setSelectedEdition] = useState<GameEditionCategory>('offline_sharing');
+
+  const gtaTierPrices: Record<GameEditionCategory, number> = {
+    offline_sharing: 100,
+    offline_private: 200,
+    online_sharing: 289,
+    online_private: 400,
+  };
+
+  const activePrice = gtaTierPrices[selectedEdition];
   return (
     <section className="relative overflow-hidden pt-8 pb-12 bg-gradient-to-b from-zinc-950 via-zinc-900/80 to-zinc-950 border-b border-emerald-500/20">
       {/* Futuristic cyber grid and ambient glow */}
@@ -30,19 +44,19 @@ export const Hero: React.FC<HeroProps> = ({
               <span>{storeName} • NEXT-GEN DIGITAL GAMING MARKETPLACE</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.08]">
+            <h1 className="text-2xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.12]">
               Play Top <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">Steam, Epic, PS4 &amp; PS5</span> Titles at 90% OFF
             </h1>
 
-            <p className="text-zinc-300 text-sm sm:text-base max-w-xl leading-relaxed">
+            <p className="text-zinc-300 text-xs sm:text-base max-w-xl leading-relaxed">
               Official digital hub for blockbusters: <strong>Black Myth: Wukong, GTA V, God of War Ragnarök, Marvel's Spider-Man 2 &amp; Elden Ring</strong>. Automated 5-minute WhatsApp delivery with 100% lifetime replacement guarantee.
             </p>
 
             {/* Quick Platform Buttons */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-2">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1">
               <button
                 onClick={() => onSelectPlatform('steam')}
-                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-blue-500 text-xs font-bold text-zinc-200 transition-all shadow-sm"
+                className="group flex items-center justify-center sm:justify-start gap-2 px-3 py-2.5 sm:px-4 sm:py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-blue-500 text-xs font-bold text-zinc-200 transition-all shadow-sm active:scale-95 cursor-pointer"
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500 group-hover:scale-125 transition-transform" />
                 <span>Steam PC Deals</span>
@@ -50,7 +64,7 @@ export const Hero: React.FC<HeroProps> = ({
 
               <button
                 onClick={() => onSelectPlatform('epic')}
-                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-gray-400 text-xs font-bold text-zinc-200 transition-all shadow-sm"
+                className="group flex items-center justify-center sm:justify-start gap-2 px-3 py-2.5 sm:px-4 sm:py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-gray-400 text-xs font-bold text-zinc-200 transition-all shadow-sm active:scale-95 cursor-pointer"
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-neutral-300 group-hover:scale-125 transition-transform" />
                 <span>Epic Games</span>
@@ -58,7 +72,7 @@ export const Hero: React.FC<HeroProps> = ({
 
               <button
                 onClick={() => onSelectPlatform('ps5')}
-                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-indigo-500 text-xs font-bold text-zinc-200 transition-all shadow-sm"
+                className="group flex items-center justify-center sm:justify-start gap-2 px-3 py-2.5 sm:px-4 sm:py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-indigo-500 text-xs font-bold text-zinc-200 transition-all shadow-sm active:scale-95 cursor-pointer"
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 group-hover:scale-125 transition-transform" />
                 <span>PlayStation 5</span>
@@ -66,7 +80,7 @@ export const Hero: React.FC<HeroProps> = ({
 
               <button
                 onClick={() => onSelectPlatform('ps4')}
-                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-sky-500 text-xs font-bold text-zinc-200 transition-all shadow-sm"
+                className="group flex items-center justify-center sm:justify-start gap-2 px-3 py-2.5 sm:px-4 sm:py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-sky-500 text-xs font-bold text-zinc-200 transition-all shadow-sm active:scale-95 cursor-pointer"
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-sky-400 group-hover:scale-125 transition-transform" />
                 <span>PlayStation 4</span>
@@ -129,31 +143,115 @@ export const Hero: React.FC<HeroProps> = ({
                     </h3>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs line-through text-zinc-400 block">₹2,499</span>
-                    <span className="text-xl font-black text-emerald-400">₹299</span>
+                    <span className="text-[11px] line-through text-zinc-400 block font-mono">₹2,499</span>
+                    <span className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">
+                      {formatPrice(activePrice)}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Quick Perks grid */}
-              <div className="grid grid-cols-2 gap-2 text-xs mb-4">
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800">
-                  <span className="text-zinc-400 block text-[11px]">Delivery Type</span>
-                  <span className="text-white font-semibold">Instant Steam Account</span>
+              {/* 4 Edition Categories Selector on Deal of the Day */}
+              <div className="mb-3.5 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-emerald-400 uppercase tracking-wider font-mono text-[10px]">
+                    Select Account / Edition Type:
+                  </span>
+                  <span className="text-zinc-300 font-mono text-[10px]">
+                    {GAME_CATEGORIES.find((c) => c.id === selectedEdition)?.shortLabel}
+                  </span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800">
-                  <span className="text-zinc-400 block text-[11px]">Warranty</span>
-                  <span className="text-emerald-400 font-semibold">100% Lifetime Cover</span>
+                <div className="grid grid-cols-2 gap-1.5 text-[11px] font-semibold">
+                  {GAME_CATEGORIES.map((cat) => {
+                    const price = gtaTierPrices[cat.id];
+                    const isSelected = selectedEdition === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSelectedEdition(cat.id)}
+                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-emerald-500/25 border-emerald-400 text-white font-extrabold shadow-sm'
+                            : 'bg-zinc-950/80 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                        }`}
+                        title={`${cat.label} - ₹${price}`}
+                      >
+                        <span className="truncate">{cat.shortLabel}</span>
+                        <span className={`font-mono text-[10px] font-black ml-1 ${isSelected ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                          ₹{price}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <button
-                onClick={onExploreDeals}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all"
-              >
-                <span>Browse All Available Games</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {/* Quick Perks grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs mb-3.5">
+                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px]">Delivery Channel</span>
+                  <span className="text-white font-bold text-xs">WhatsApp (+91 9442964232)</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px]">Warranty &amp; Support</span>
+                  <span className="text-emerald-400 font-bold text-xs">100% Lifetime Cover</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const gtaGame = {
+                      id: 'gta-v-steam',
+                      title: 'Grand Theft Auto V: Premium Edition',
+                      slug: 'gta-v-premium-edition',
+                      platform: 'steam' as const,
+                      type: 'offline_account' as const,
+                      genre: 'Action / Open World / Heists',
+                      price: 100,
+                      tierPricing: {
+                        offlineSharing: 100,
+                        offlinePrivate: 200,
+                        onlineSharing: 289,
+                        onlinePrivate: 400
+                      },
+                      originalPrice: 2499,
+                      discountPercent: 85,
+                      description: 'The Grand Theft Auto V: Premium Edition includes the complete Grand Theft Auto V story experience.',
+                      coverImage: 'https://shared.steamstatic.com/store_item_assets/steam/apps/271590/library_600x900_2x.jpg',
+                      bannerImage: 'https://shared.steamstatic.com/store_item_assets/steam/apps/271590/library_hero.jpg',
+                      edition: 'Premium Edition',
+                      deliveryType: 'Instant Steam Credentials',
+                      activationGuide: '1. Log into provided Steam Account. 2. Download GTA V. 3. Switch to Steam Offline mode.',
+                      inStock: true,
+                      stockCount: 50,
+                      isFeatured: true,
+                      isDealOfTheDay: true,
+                      rating: 4.9,
+                      reviewCount: 450,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString()
+                    };
+                    addToCart(gtaGame, selectedEdition);
+                    setIsCartOpen(true);
+                  }}
+                  className="flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Buy GTA V ({formatPrice(activePrice)})</span>
+                </button>
+
+                <button
+                  onClick={onExploreDeals}
+                  className="py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <span>All 32 Games</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

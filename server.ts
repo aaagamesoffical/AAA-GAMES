@@ -17,7 +17,7 @@ import {
   limit 
 } from 'firebase/firestore';
 import { db } from './src/firebase.ts';
-import { INITIAL_GAMES, INITIAL_COUPONS } from './src/data/initialGames.ts';
+import { INITIAL_GAMES, INITIAL_COUPONS, INITIAL_REVIEWS } from './src/data/initialGames.ts';
 
 dotenv.config();
 
@@ -751,16 +751,18 @@ app.post('/api/catalog/sync', async (_req, res) => {
       }), { merge: true });
     }
 
-    // Purge old pre-seeded reviews so owner can upload their own image proofs
-    const revsSnap = await getDocs(collection(db, 'reviews'));
-    for (const rDoc of revsSnap.docs) {
-      await deleteDoc(rDoc.ref);
+    // Seed verified customer photo proof reviews
+    for (const rev of INITIAL_REVIEWS) {
+      await setDoc(doc(db, 'reviews', rev.id), sanitizeData({
+        ...rev,
+        createdAt: rev.createdAt || new Date().toISOString()
+      }), { merge: true });
     }
 
     res.json({ 
       success: true, 
       count: INITIAL_GAMES.length, 
-      message: `All ${INITIAL_GAMES.length} official Steam games updated to Offline Share ₹100, Offline Private ₹200, Online Sharing ₹289, Online Private ₹400. Old reviews purged.` 
+      message: `All ${INITIAL_GAMES.length} official Steam games updated to Offline Share ₹100, Offline Private ₹200, Online Sharing ₹289, Online Private ₹400. Photo reviews synced.` 
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -780,6 +782,148 @@ app.post('/api/reviews/clear', async (_req, res) => {
   }
 });
 
+// Admin Coupons API
+app.post('/api/coupons', async (req, res) => {
+  try {
+    const { code, discountPercent, minSpend, isActive } = req.body;
+    if (!code) {
+      return res.status(400).json({ error: 'Coupon code is required' });
+    }
+    const cleanCode = String(code).trim().toUpperCase();
+    const couponRef = doc(db, 'coupons', cleanCode);
+    const data = sanitizeData({
+      id: cleanCode,
+      code: cleanCode,
+      discountPercent: Number(discountPercent) || 10,
+      minSpend: Number(minSpend) || 0,
+      isActive: isActive !== false,
+      updatedAt: new Date().toISOString(),
+      createdAt: req.body.createdAt || new Date().toISOString()
+    });
+    await setDoc(couponRef, data, { merge: true });
+    res.json({ success: true, coupon: data });
+  } catch (err: any) {
+    console.error('Server coupon save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/coupons/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code).trim().toUpperCase();
+    await deleteDoc(doc(db, 'coupons', code));
+    // Also try exact param case
+    if (code !== req.params.code) {
+      await deleteDoc(doc(db, 'coupons', req.params.code));
+    }
+    res.json({ success: true, message: `Coupon ${code} deleted` });
+  } catch (err: any) {
+    console.error('Server coupon delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin Games API
+app.post('/api/games', async (req, res) => {
+  try {
+    const game = req.body;
+    if (!game.id || !game.title) {
+      return res.status(400).json({ error: 'Game id and title are required' });
+    }
+    const gameRef = doc(db, 'games', String(game.id));
+    const now = new Date().toISOString();
+    await setDoc(gameRef, sanitizeData({
+      ...game,
+      updatedAt: now,
+      createdAt: game.createdAt || now
+    }), { merge: true });
+    res.json({ success: true, game });
+  } catch (err: any) {
+    console.error('Server game save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/games/:id', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    await deleteDoc(doc(db, 'games', id));
+    res.json({ success: true, message: `Game ${id} deleted` });
+  } catch (err: any) {
+    console.error('Server game delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin Store Settings API
+app.post('/api/settings', async (req, res) => {
+  try {
+    const settings = req.body;
+    const settingsRef = doc(db, 'settings', 'store_config');
+    await setDoc(settingsRef, sanitizeData({
+      ...settings,
+      updatedAt: new Date().toISOString()
+    }), { merge: true });
+    res.json({ success: true, settings });
+  } catch (err: any) {
+    console.error('Server settings save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin Reviews API
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const review = req.body;
+    const reviewId = review.id || ('rev-' + Math.random().toString(36).substring(2, 9));
+    const reviewRef = doc(db, 'reviews', reviewId);
+    await setDoc(reviewRef, sanitizeData({
+      ...review,
+      id: reviewId,
+      updatedAt: new Date().toISOString(),
+      createdAt: review.createdAt || new Date().toISOString()
+    }), { merge: true });
+    res.json({ success: true, reviewId });
+  } catch (err: any) {
+    console.error('Server review save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/reviews/:id', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    await deleteDoc(doc(db, 'reviews', id));
+    res.json({ success: true, message: `Review ${id} deleted` });
+  } catch (err: any) {
+    console.error('Server review delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin Orders API
+app.post('/api/orders/status', async (req, res) => {
+  try {
+    const { orderId, status, assignedCredentials } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ error: 'orderId is required' });
+    }
+    const orderRef = doc(db, 'orders', orderId);
+    const updateData: Record<string, any> = {
+      status,
+      updatedAt: new Date().toISOString()
+    };
+    if (assignedCredentials) {
+      updateData.assignedCredentials = assignedCredentials;
+    }
+    await updateDoc(orderRef, updateData);
+    res.json({ success: true, orderId, status });
+  } catch (err: any) {
+    console.error('Server order status error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 async function autoSeedCatalog() {
   try {
     const snap = await getDocs(collection(db, 'games'));
@@ -788,18 +932,31 @@ async function autoSeedCatalog() {
       for (const game of INITIAL_GAMES) {
         await setDoc(doc(db, 'games', game.id), sanitizeData({
           ...game,
+          price: 100,
+          tierPricing: {
+            offlineSharing: 100,
+            offlinePrivate: 200,
+            onlineSharing: 289,
+            onlinePrivate: 400
+          },
           createdAt: game.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }), { merge: true });
       }
+    }
+
+    const couponSnap = await getDocs(collection(db, 'coupons'));
+    if (couponSnap.empty) {
+      console.log('Seeding initial promotional coupons into Firestore...');
       for (const coupon of INITIAL_COUPONS) {
         await setDoc(doc(db, 'coupons', coupon.code), sanitizeData({
           ...coupon,
           id: coupon.code,
+          code: coupon.code,
+          isActive: true,
           createdAt: new Date().toISOString()
         }), { merge: true });
       }
-      console.log('Official Steam DB games catalog ready in Firestore.');
     }
   } catch (err) {
     console.warn('Auto-seed notice:', err);

@@ -61,23 +61,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Logo - Futuristic Cyber Style */}
           <div 
             onClick={() => onSelectPlatform('all')}
-            className="flex items-center gap-3 cursor-pointer group flex-shrink-0"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group flex-shrink-0"
           >
             <div className="relative">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-indigo-500 p-[1.5px] shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] transition-all">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-indigo-500 p-[1.5px] shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] transition-all">
                 <div className="w-full h-full bg-zinc-950 rounded-[10px] flex items-center justify-center">
-                  <Gamepad2 className="w-6 h-6 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <Gamepad2 className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400 group-hover:scale-110 transition-transform" />
                 </div>
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-zinc-950 animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-zinc-950 animate-pulse" />
             </div>
 
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-2xl sm:text-3xl tracking-tight bg-gradient-to-r from-white via-zinc-100 to-zinc-300 bg-clip-text text-transparent">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-black text-lg sm:text-3xl tracking-tight bg-gradient-to-r from-white via-zinc-100 to-zinc-300 bg-clip-text text-transparent">
                   {storeName.split(' ')[0]} <span className="text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]">{storeName.split(' ').slice(1).join(' ') || 'GAMES'}</span>
                 </span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 tracking-wider">
+                <span className="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 tracking-wider">
                   STORE
                 </span>
               </div>
@@ -110,13 +110,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Right Action Icons */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             
-            {/* Currency Switcher */}
-            <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 text-xs font-semibold">
+            {/* Currency Switcher (Visible on tablet and desktop) */}
+            <div className="hidden sm:flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 text-xs font-semibold">
               <button
                 onClick={() => setCurrency('INR')}
-                className={`px-2 py-1 rounded-md transition-colors ${
+                className={`px-2 py-0.5 sm:py-1 rounded-md transition-colors ${
                   currency === 'INR' ? 'bg-emerald-500 text-black font-bold' : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -124,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
               <button
                 onClick={() => setCurrency('USD')}
-                className={`px-2 py-1 rounded-md transition-colors ${
+                className={`px-2 py-0.5 sm:py-1 rounded-md transition-colors ${
                   currency === 'USD' ? 'bg-emerald-500 text-black font-bold' : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -132,28 +132,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
 
-            {/* Admin Dashboard Button */}
+            {/* Admin Dashboard Button (Desktop) */}
             {isAdmin && (
               <button
                 onClick={onOpenAdmin}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 transition-all text-xs font-bold shadow-sm shadow-emerald-500/10"
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 transition-all text-xs font-bold shadow-sm shadow-emerald-500/10"
                 title="Admin Control Panel"
               >
-                <Sparkles className="w-3.5 h-3.5 animate-pulse text-emerald-300" />
-                <span className="hidden sm:inline">Admin Panel</span>
-                <span className="sm:hidden">Admin</span>
+                <Sparkles className="w-3 h-3 animate-pulse text-emerald-300" />
+                <span>Admin Panel</span>
               </button>
             )}
 
             {/* Wishlist Button */}
             <button
               onClick={onOpenWishlist}
-              className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 relative transition-colors"
+              className="p-1.5 sm:p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 relative transition-colors"
               title="Wishlist"
             >
-              <Heart className="w-5 h-5 text-rose-400" />
+              <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-rose-400" />
               {wishlist.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] sm:text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                   {wishlist.length}
                 </span>
               )}
@@ -162,11 +161,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+              className="flex items-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
             >
-              <ShoppingCart className="w-5 h-5" />
-              <span className="text-xs sm:text-sm hidden sm:inline">Cart</span>
-              <span className="bg-zinc-950 text-emerald-400 text-xs px-1.5 py-0.5 rounded-full font-extrabold min-w-[20px] text-center">
+              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="bg-zinc-950 text-emerald-400 text-[10px] sm:text-xs px-1.5 py-0.2 sm:py-0.5 rounded-full font-extrabold min-w-[18px] text-center">
                 {totalItemsCount}
               </span>
             </button>
@@ -177,16 +175,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="relative">
                   <button
                     onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+                    className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
                   >
                     {user.photoURL ? (
                       <img
                         src={user.photoURL}
                         alt="Profile"
-                        className="w-7 h-7 rounded-full object-cover border border-emerald-500/50"
+                        className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border border-emerald-500/50"
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
                         {user.displayName ? user.displayName[0].toUpperCase() : 'U'}
                       </div>
                     )}
@@ -249,10 +247,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               ) : (
                 <button
                   onClick={onOpenAuth}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 text-zinc-200 hover:text-white text-xs sm:text-sm font-semibold transition-all"
+                  className="flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 text-zinc-200 hover:text-white text-xs font-semibold transition-all"
                 >
-                  <User className="w-4 h-4 text-emerald-400" />
-                  <span>Login</span>
+                  <User className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden xs:inline">Login</span>
                 </button>
               )}
             </div>
@@ -260,9 +258,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
+              className="lg:hidden p-1.5 sm:p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white cursor-pointer"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4 sm:w-5 sm:h-5" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
         </div>
@@ -328,6 +326,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {p.label}
                 </button>
               ))}
+            </div>
+
+            {/* Mobile Currency Switcher */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs">
+              <span className="text-zinc-400 font-semibold">Store Currency:</span>
+              <div className="flex items-center bg-zinc-950 border border-zinc-700/80 rounded-lg p-0.5 font-bold">
+                <button
+                  onClick={() => setCurrency('INR')}
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    currency === 'INR' ? 'bg-emerald-500 text-black font-extrabold' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  ₹ INR
+                </button>
+                <button
+                  onClick={() => setCurrency('USD')}
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    currency === 'USD' ? 'bg-emerald-500 text-black font-extrabold' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  $ USD
+                </button>
+              </div>
             </div>
 
             <div className="pt-2 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">

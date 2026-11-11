@@ -10,9 +10,9 @@ export const WhatsAppSupport: React.FC<WhatsAppSupportProps> = ({ whatsappNumber
   const cleanPhone = whatsappNumber.replace(/[^0-9]/g, '');
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end">
+    <div className="fixed bottom-20 md:bottom-5 right-3 sm:right-5 z-40 flex flex-col items-end">
       {showTooltip && (
-        <div className="relative mb-2 p-3 bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-2xl max-w-xs text-xs text-zinc-200 animate-bounce-subtle">
+        <div className="relative mb-2 p-3 bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-2xl max-w-[270px] sm:max-w-xs text-xs text-zinc-200 animate-bounce-subtle">
           <button
             onClick={() => setShowTooltip(false)}
             className="absolute top-1.5 right-1.5 p-1 text-zinc-400 hover:text-white"

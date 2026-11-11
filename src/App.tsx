@@ -32,12 +32,14 @@ import { AIAssistantWidget } from './components/AIAssistantWidget';
 import { CustomerReviews } from './components/CustomerReviews';
 import { FAQSection } from './components/FAQSection';
 import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { Game, Platform, StoreSettings } from './types/game';
 import { subscribeToGames, subscribeToStoreSettings, DEFAULT_STORE_SETTINGS } from './services/gameService';
 import { INITIAL_GAMES } from './data/initialGames';
 
 function MainStore() {
   const { isAdmin } = useAuth();
+  const { setIsCartOpen } = useCart();
   const [games, setGames] = useState<Game[]>(INITIAL_GAMES);
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
@@ -148,8 +150,15 @@ function MainStore() {
     }
   };
 
+  const scrollToReviews = () => {
+    const el = document.getElementById('reviews-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col selection:bg-emerald-500 selection:text-zinc-950">
+    <div className="min-h-screen bg-zinc-950 text-white flex flex-col selection:bg-emerald-500 selection:text-zinc-950 pb-16 md:pb-0">
       
       {/* Top Banner */}
       <Banner 
@@ -423,6 +432,21 @@ function MainStore() {
         isOpen={isAdminPanelOpen}
         onClose={() => setIsAdminPanelOpen(false)}
         games={games}
+      />
+
+      {/* Mobile Touch Navigation Bar */}
+      <MobileBottomNav
+        onOpenCart={() => setIsCartOpen(true)}
+        onScrollToCatalog={scrollToCatalog}
+        onScrollToReviews={scrollToReviews}
+        onOpenAdmin={() => {
+          if (isAdmin) {
+            setIsAdminPanelOpen(true);
+          }
+        }}
+        selectedPlatform={selectedPlatform}
+        onSelectPlatform={setSelectedPlatform}
+        whatsappNumber={storeSettings.whatsappNumber}
       />
     </div>
   );

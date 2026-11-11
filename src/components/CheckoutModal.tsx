@@ -344,10 +344,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </p>
                   )}
 
-                  {!appliedCoupon && availableCoupons.length > 0 && (
+                  {!appliedCoupon && availableCoupons.filter(c => c.isActive !== false).length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                       <span className="text-[10px] text-zinc-500">Suggested:</span>
-                      {availableCoupons.slice(0, 4).map((c) => (
+                      {availableCoupons.filter(c => c.isActive !== false).slice(0, 4).map((c) => (
                         <button
                           key={c.code}
                           type="button"

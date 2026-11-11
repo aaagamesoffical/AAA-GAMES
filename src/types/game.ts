@@ -180,6 +180,7 @@ export interface Coupon {
   minSpend: number;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Review {

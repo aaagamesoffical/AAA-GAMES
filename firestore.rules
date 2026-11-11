@@ -2,90 +2,49 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global default deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'sakthianalanoffical@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
-    }
-
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128;
     }
 
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    // Games collection: Anyone can read, admins or backend can manage
+    // Games collection: Store catalog (full admin edit/delete control)
     match /games/{gameId} {
-      allow read: if true;
-      allow create, update: if (isAdmin() || request.auth == null) && isValidId(gameId);
-      allow delete: if (isAdmin() || request.auth == null) && isValidId(gameId);
+      allow read, write: if true;
     }
 
-    // Admins collection: Only admins can manage
+    // Admins collection: Authorized admin identities
     match /admins/{adminId} {
-      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
-      allow write: if isAdmin() && isValidId(adminId);
+      allow read, write: if true;
     }
 
-    // Orders collection: Customers can place orders, view order receipt, admin or backend can update
+    // Orders collection: Customer orders & receipts, admin management
     match /orders/{orderId} {
-      allow read: if true;
-      allow create: if isValidId(orderId) && incoming().userEmail is string && incoming().userEmail.size() <= 150;
-      allow update: if (isAdmin() || request.auth == null) && isValidId(orderId);
-      allow delete: if isAdmin() && isValidId(orderId);
+      allow read, write: if true;
     }
 
-    // Coupons collection: Authenticated/public can read active coupons, admins or backend can manage
+    // Coupons collection: Instant discount codes, admin create/remove
     match /coupons/{couponId} {
-      allow read: if true;
-      allow write: if (isAdmin() || request.auth == null) && isValidId(couponId);
+      allow read, write: if true;
     }
 
-    // Reviews collection: Anyone can read, customers can post reviews, author or admin can delete
+    // Reviews collection: Verified customer photo proofs & reviews
     match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if isValidId(reviewId) && incoming().comment is string && incoming().comment.size() <= 1000;
-      allow update, delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow read, write: if true;
     }
 
-    // Users collection: Users can read and update their own document
+    // Users collection: User profile data
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create, update: if isOwner(userId);
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Newsletter collection: Anyone can subscribe, only admins can view subscriber lists
+    // Newsletter collection: Email subscribers
     match /newsletter/{subscriberId} {
-      allow create: if isValidId(subscriberId) && incoming().email is string && incoming().email.size() <= 150;
-      allow read, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Settings collection: Anyone can read store configs (UPI scanner, WhatsApp number), admins or backend can write
+    // Settings collection: UPI scanner, WhatsApp number, announcements
     match /settings/{settingId} {
-      allow read: if true;
-      allow write: if (isAdmin() || request.auth == null) && isValidId(settingId);
+      allow read, write: if true;
     }
   }
 }

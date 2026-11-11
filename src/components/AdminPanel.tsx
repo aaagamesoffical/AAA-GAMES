@@ -39,6 +39,7 @@ import {
   Zap
 } from 'lucide-react';
 import { Game, Coupon, Order, Platform, ProductType, StoreSettings, NewsletterSubscriber, Review } from '../types/game';
+import { INITIAL_COUPONS } from '../data/initialGames';
 import { 
   saveGame, 
   deleteGame, 
@@ -119,6 +120,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
   const [newCouponCode, setNewCouponCode] = useState('');
   const [newCouponDiscount, setNewCouponDiscount] = useState<number>(10);
   const [newCouponMinSpend, setNewCouponMinSpend] = useState<number>(300);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [copiedCouponCode, setCopiedCouponCode] = useState<string | null>(null);
+  const [isRestoringCoupons, setIsRestoringCoupons] = useState(false);
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -402,31 +406,116 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
   // Handle Coupon Create
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCouponCode.trim()) return;
+    const cleanCode = newCouponCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if (!cleanCode) {
+      alert('Please enter a valid coupon code (e.g. FLASH25)');
+      return;
+    }
+
+    const newCouponItem: Coupon = {
+      id: cleanCode,
+      code: cleanCode,
+      discountPercent: Number(newCouponDiscount) || 10,
+      minSpend: Number(newCouponMinSpend) || 0,
+      isActive: true,
+      createdAt: new Date().toISOString()
+    };
+
+    // Optimistic UI update
+    setCoupons(prev => [newCouponItem, ...prev.filter(c => c.code.toUpperCase() !== cleanCode)]);
+    setNewCouponCode('');
 
     try {
-      await saveCoupon({
-        id: newCouponCode.trim().toUpperCase(),
-        code: newCouponCode.trim().toUpperCase(),
-        discountPercent: Number(newCouponDiscount),
-        minSpend: Number(newCouponMinSpend),
-        isActive: true,
-        createdAt: new Date().toISOString()
-      });
-      setNewCouponCode('');
-      showNotification('Discount coupon created!');
+      await saveCoupon(newCouponItem);
+      showNotification(`✅ Coupon "${cleanCode}" created & active!`);
     } catch (err: any) {
-      alert('Failed to create coupon: ' + err.message);
+      alert('Failed to save coupon: ' + (err.message || 'Error occurred'));
     }
   };
 
+  // Handle Coupon Delete
   const handleDeleteCoupon = async (code: string) => {
-    if (!confirm(`Delete coupon ${code}?`)) return;
+    const cleanCode = code.trim().toUpperCase();
+    if (!confirm(`Are you sure you want to permanently delete coupon "${cleanCode}"?`)) return;
+
+    // Optimistic UI update
+    setCoupons(prev => prev.filter(c => c.code.toUpperCase() !== cleanCode));
+
     try {
-      await deleteCoupon(code);
-      showNotification(`Coupon ${code} deleted.`);
+      await deleteCoupon(cleanCode);
+      showNotification(`🗑️ Coupon "${cleanCode}" deleted.`);
     } catch (err: any) {
-      alert('Delete failed: ' + err.message);
+      alert('Delete failed: ' + (err.message || 'Error occurred'));
+    }
+  };
+
+  // Toggle Coupon Active / Paused Status
+  const handleToggleCouponActive = async (coupon: Coupon) => {
+    const updated: Coupon = {
+      ...coupon,
+      id: coupon.code.toUpperCase(),
+      code: coupon.code.toUpperCase(),
+      isActive: !coupon.isActive,
+      updatedAt: new Date().toISOString()
+    };
+
+    setCoupons(prev => prev.map(c => c.code.toUpperCase() === coupon.code.toUpperCase() ? updated : c));
+
+    try {
+      await saveCoupon(updated);
+      showNotification(`Coupon "${coupon.code}" is now ${updated.isActive ? '🟢 Active' : '⏸️ Paused'}.`);
+    } catch (err: any) {
+      alert('Status update failed: ' + err.message);
+    }
+  };
+
+  // Save Edited Coupon
+  const handleSaveEditedCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCoupon) return;
+
+    const updated: Coupon = {
+      ...editingCoupon,
+      id: editingCoupon.code.toUpperCase(),
+      code: editingCoupon.code.toUpperCase(),
+      discountPercent: Number(editingCoupon.discountPercent),
+      minSpend: Number(editingCoupon.minSpend),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCoupons(prev => prev.map(c => c.code.toUpperCase() === updated.code ? updated : c));
+    setEditingCoupon(null);
+
+    try {
+      await saveCoupon(updated);
+      showNotification(`✅ Coupon "${updated.code}" updated successfully!`);
+    } catch (err: any) {
+      alert('Failed to update coupon: ' + err.message);
+    }
+  };
+
+  // Restore Default Coupons
+  const handleRestoreDefaultCoupons = async () => {
+    if (!confirm('This will restore all default official coupons (SAKTHI20, AAAGAMES, CHEAPGAMER, STEAM50, WELCOME5) to the store. Continue?')) {
+      return;
+    }
+
+    setIsRestoringCoupons(true);
+    try {
+      localStorage.removeItem('aaa_deleted_coupons');
+      for (const c of INITIAL_COUPONS) {
+        await saveCoupon({
+          ...c,
+          id: c.code,
+          isActive: true,
+          createdAt: new Date().toISOString()
+        });
+      }
+      showNotification('✅ Default store coupons restored!');
+    } catch (err: any) {
+      alert('Failed to restore coupons: ' + err.message);
+    } finally {
+      setIsRestoringCoupons(false);
     }
   };
 
@@ -1324,11 +1413,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                               </div>
                             </td>
                             <td className="py-3 px-3">
-                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                                game.inStock ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                              }`}>
-                                {game.inStock ? `${game.stockCount} in stock` : 'Out of Stock'}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await saveGame({
+                                      ...game,
+                                      inStock: !game.inStock,
+                                      stockCount: !game.inStock ? 20 : 0
+                                    });
+                                    showNotification(`"${game.title}" is now ${!game.inStock ? '🟢 In Stock' : '🔴 Out of Stock'}`);
+                                  } catch (err: any) {
+                                    alert('Stock update failed: ' + err.message);
+                                  }
+                                }}
+                                className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                                  game.inStock
+                                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
+                                    : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30'
+                                }`}
+                                title="Click to toggle In Stock / Out of Stock instantly"
+                              >
+                                {game.inStock ? `🟢 ${game.stockCount || 20} In Stock` : '🔴 Out of Stock'}
+                              </button>
                             </td>
                             <td className="py-3 px-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
@@ -1865,28 +1972,52 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
           {/* TAB 3: OFFERS & COUPONS */}
           {activeTab === 'coupons' && (
             <div className="space-y-6">
+              {/* Header with Restore Defaults */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-extrabold text-base text-white flex items-center gap-2">
+                    <Tag className="w-5 h-5 text-emerald-400" />
+                    <span>Store Offers &amp; Promo Coupons ({coupons.length})</span>
+                  </h4>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Create instant discount codes, edit percentages, pause/unpause, or delete vouchers.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultCoupons}
+                  disabled={isRestoringCoupons}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 border border-zinc-700 transition-colors disabled:opacity-50"
+                  title="Restore standard promo codes (SAKTHI20, AAAGAMES, etc.)"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRestoringCoupons ? 'animate-spin text-emerald-400' : ''}`} />
+                  <span>{isRestoringCoupons ? 'Restoring...' : 'Restore Default Offers'}</span>
+                </button>
+              </div>
+
               {/* Create Coupon Form */}
               <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
-                <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-emerald-400" />
-                  Create Promotional Offer Voucher
-                </h4>
+                <h5 className="font-bold text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  <span>Create New Promotional Coupon</span>
+                </h5>
 
                 <form onSubmit={handleCreateCoupon} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-[11px] text-zinc-400 font-semibold mb-1">Coupon Code</label>
+                    <label className="block text-[11px] text-zinc-400 font-semibold mb-1">Coupon Code *</label>
                     <input
                       type="text"
                       required
                       value={newCouponCode}
-                      onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. FLASH20"
-                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white uppercase font-mono font-bold focus:outline-none focus:border-emerald-500"
+                      onChange={(e) => setNewCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))}
+                      placeholder="e.g. FLASH25"
+                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white uppercase font-mono font-bold focus:outline-none focus:border-emerald-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-zinc-400 font-semibold mb-1">Discount (%)</label>
+                    <label className="block text-[11px] text-zinc-400 font-semibold mb-1">Discount (%) *</label>
                     <input
                       type="number"
                       required
@@ -1894,7 +2025,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                       max={90}
                       value={newCouponDiscount}
                       onChange={(e) => setNewCouponDiscount(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500 font-mono"
                     />
                   </div>
 
@@ -1903,16 +2034,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
                     <input
                       type="number"
                       required
+                      min={0}
                       value={newCouponMinSpend}
                       onChange={(e) => setNewCouponMinSpend(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                     />
                   </div>
 
                   <div className="flex items-end">
                     <button
                       type="submit"
-                      className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                      className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Add Coupon</span>
@@ -1922,34 +2054,194 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, games }
               </div>
 
               {/* Coupons List */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {coupons.map((coupon) => (
-                  <div
-                    key={coupon.code}
-                    className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between gap-3"
+              {coupons.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-zinc-950 border border-zinc-800 text-center space-y-3">
+                  <Tag className="w-10 h-10 text-zinc-600 mx-auto" />
+                  <p className="text-zinc-400 text-xs">No active coupons in the store.</p>
+                  <button
+                    type="button"
+                    onClick={handleRestoreDefaultCoupons}
+                    className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-colors"
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-sm text-emerald-400">{coupon.code}</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
-                          {coupon.discountPercent}% OFF
-                        </span>
+                    Restore Official Store Coupons
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {coupons.map((coupon) => (
+                    <div
+                      key={coupon.code}
+                      className={`p-4 rounded-xl bg-zinc-950 border transition-all ${
+                        coupon.isActive !== false
+                          ? 'border-zinc-800 hover:border-emerald-500/40'
+                          : 'border-zinc-800/50 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-base text-white tracking-wide">{coupon.code}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(coupon.code);
+                                setCopiedCouponCode(coupon.code);
+                                setTimeout(() => setCopiedCouponCode(null), 2000);
+                              }}
+                              className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                              title="Copy Coupon Code"
+                            >
+                              {copiedCouponCode === coupon.code ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                          <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded ${
+                            coupon.isActive !== false
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-zinc-800 text-zinc-400'
+                          }`}>
+                            {coupon.isActive !== false ? '🟢 Active' : '⏸️ Paused'}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-base font-black text-emerald-400 font-mono">
+                            {coupon.discountPercent}% OFF
+                          </span>
+                          <span className="block text-[10px] text-zinc-400">
+                            Min: ₹{coupon.minSpend || 0}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-zinc-400 mt-1">
-                        Min. Order: ₹{coupon.minSpend}
-                      </p>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center justify-between pt-2.5 border-t border-zinc-800/80 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCouponActive(coupon)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                            coupon.isActive !== false
+                              ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                              : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                          }`}
+                        >
+                          {coupon.isActive !== false ? 'Pause' : 'Activate'}
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingCoupon(coupon)}
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                            title="Edit Coupon"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCoupon(coupon.code)}
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"
+                            title="Permanently Delete Coupon"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Edit Coupon Modal */}
+              {editingCoupon && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                  <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-2xl p-5 space-y-4 text-white shadow-2xl">
+                    <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-emerald-400" />
+                        <h4 className="font-extrabold text-sm">Edit Coupon: {editingCoupon.code}</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingCoupon(null)}
+                        className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleDeleteCoupon(coupon.code)}
-                      className="p-2 rounded-lg bg-zinc-800 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"
-                      title="Delete Coupon"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <form onSubmit={handleSaveEditedCoupon} className="space-y-3.5 text-xs">
+                      <div>
+                        <label className="block text-zinc-400 font-semibold mb-1">Coupon Code (Read-Only)</label>
+                        <input
+                          type="text"
+                          disabled
+                          value={editingCoupon.code}
+                          className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl font-mono font-bold text-zinc-400 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-zinc-400 font-semibold mb-1">Discount (%) *</label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          max={90}
+                          value={editingCoupon.discountPercent}
+                          onChange={(e) => setEditingCoupon({ ...editingCoupon, discountPercent: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-zinc-400 font-semibold mb-1">Minimum Spend (₹)</label>
+                        <input
+                          type="number"
+                          required
+                          min={0}
+                          value={editingCoupon.minSpend}
+                          onChange={(e) => setEditingCoupon({ ...editingCoupon, minSpend: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-white font-mono focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="checkbox"
+                          id="editCouponActive"
+                          checked={editingCoupon.isActive !== false}
+                          onChange={(e) => setEditingCoupon({ ...editingCoupon, isActive: e.target.checked })}
+                          className="rounded text-emerald-500 focus:ring-emerald-500"
+                        />
+                        <label htmlFor="editCouponActive" className="text-zinc-300 font-semibold cursor-pointer">
+                          Coupon is active and redeemable at checkout
+                        </label>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
+                        <button
+                          type="button"
+                          onClick={() => setEditingCoupon(null)}
+                          className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Save Changes</span>
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 

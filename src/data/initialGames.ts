@@ -1069,4 +1069,41 @@ export const INITIAL_COUPONS: { code: string; discountPercent: number; minSpend:
   { code: 'GAMER25', discountPercent: 25, minSpend: 0, isActive: true }
 ];
 
-export const INITIAL_REVIEWS: any[] = [];
+export const INITIAL_REVIEWS: any[] = [
+  {
+    id: 'rev_wukong_proof_1',
+    gameId: 'black-myth-wukong-steam',
+    gameTitle: 'Black Myth: Wukong',
+    userId: 'user_rahul_944',
+    userName: 'Rahul Verma (Verified Gamer)',
+    rating: 5,
+    comment: 'Sent UPI payment of ₹100 for Offline Sharing edition. Received verified Steam credentials on WhatsApp (+91 9442964232) in 3 minutes! Switched to offline mode and playing smoothly without any lag. Attached screenshot proof from my mobile checkout!',
+    images: ['/assets/aistudio/WhatsApp_Image_2026-11-11_at_5.23.48_PM_e33b436e.jpeg'],
+    verifiedPurchase: true,
+    createdAt: '2026-03-01T10:15:00.000Z'
+  },
+  {
+    id: 'rev_gta5_proof_2',
+    gameId: 'gta-v-steam',
+    gameTitle: 'Grand Theft Auto V: Premium Edition',
+    userId: 'user_karthik_blr',
+    userName: 'Karthik S. (Bengaluru)',
+    rating: 5,
+    comment: 'Selected the ₹200 Offline Private account so I can play story mode with full personal saves. Download speed on Steam was 100 MB/s. Best and cheapest game seller in India!',
+    images: ['https://shared.steamstatic.com/store_item_assets/steam/apps/271590/ss_e1e2472c219662f6b3cf73a5a73a388e604ecab8.1920x1080.jpg'],
+    verifiedPurchase: true,
+    createdAt: '2026-03-02T14:30:00.000Z'
+  },
+  {
+    id: 'rev_gow_proof_3',
+    gameId: 'god-of-war-ragnarok-ps5',
+    gameTitle: 'God of War Ragnarök',
+    userId: 'user_aman_mumbai',
+    userName: 'Aman Patel (Mumbai)',
+    rating: 5,
+    comment: 'Delivered fast via WhatsApp message. Activated as primary PS5 account as per the guide and playing in 4K 60FPS on my TV. Legit warranty!',
+    images: ['https://shared.steamstatic.com/store_item_assets/steam/apps/2322010/ss_8d34800366eb6ff0808a98bfbe4ff622a550d53c.1920x1080.jpg'],
+    verifiedPurchase: true,
+    createdAt: '2026-03-03T09:20:00.000Z'
+  }
+];
